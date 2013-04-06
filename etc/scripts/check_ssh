@@ -1,0 +1,4 @@
+#!/bin/bash
+
+#another option is to use just wrap the nagios plugin
+/usr/lib/nagios/plugins/check_ssh localhost

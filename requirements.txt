@@ -1,0 +1,7 @@
+redis
+Flask
+Flask-pymongo
+pymongo
+eventlet
+hiredis
+simplejson

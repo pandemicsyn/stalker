@@ -1,0 +1,2 @@
+recursive-include stalkerweb/templates *
+recursive-include stalkerweb/static *

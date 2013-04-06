@@ -1,0 +1,5 @@
+#!/bin/bash
+
+#usually you'd link the check_load plugin or copy it here
+/usr/lib/nagios/plugins/check_load $@
+exit $?

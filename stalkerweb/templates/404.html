@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block head %}
+
+    <script>
+        var images = ['smokebomb.gif', 'smokebomb2.gif'];
+        function getRandomImage(imgAr, path) {
+            path = path || 'images/'; // default path here
+            var num = Math.floor( Math.random() * imgAr.length );
+            var img = imgAr[ num ];
+            var imgStr = '<img src="' + path + img + '" alt = "">';
+            document.write(imgStr); document.close();
+        }
+    </script>
+
+    <style type="text/css">
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
+        background-color: #f5f5f5;
+      }
+
+      .form-signin {
+        max-width: 500px;
+        padding: 19px 29px 29px;
+        margin: 0 auto 25px;
+        background-color: #fff;
+        border: 1px solid #e5e5e5;
+        -webkit-border-radius: 5px;
+           -moz-border-radius: 5px;
+                border-radius: 5px;
+        -webkit-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+           -moz-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+                box-shadow: 0 1px 2px rgba(0,0,0,.05);
+      }
+      .form-signin .form-signin-heading,
+      .form-signin .checkbox {
+        margin-bottom: 10px;
+      }
+      .form-signin input[type="text"],
+      .form-signin input[type="password"] {
+        font-size: 16px;
+        height: auto;
+        margin-bottom: 15px;
+        padding: 7px 9px;
+      }
+
+    </style>
+
+{% endblock %}
+
+{% block body %}
+
+    <div class="container">
+
+        <form class="form-signin">
+            <h1 class="form-signin-heading">Nope - 404 Not Found</h1>
+            <script type="text/javascript">getRandomImage(images, '/static/img/')</script>
+      </form>
+
+    </div> <!-- /container -->
+
+{% endblock %}

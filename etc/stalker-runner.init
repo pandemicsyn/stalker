@@ -1,0 +1,12 @@
+description "stalker-runner server"
+author      "PandemicSyn"
+
+start on startup
+respawn
+respawn limit 15 5
+
+env USER
+
+script
+    exec /usr/bin/python /usr/bin/stalker-runner -f --conf=/etc/stalker/stalker-runner.conf start >> /var/log/stalker.log 2>&1
+end script
