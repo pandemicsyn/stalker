@@ -9,6 +9,7 @@
         self.hostip = ko.observable('0.0.0.0');
         self.host_roles = ko.observableArray([]);
         self.checks = ko.observableArray([]);
+        self.changes = ko.observableArray([]);
       }
       function loadHost() {
         $.ajax({type: "GET",
@@ -22,17 +23,22 @@
                     role = data['roles'][i]
                     self.host_roles.push({'name': role, 'url': '/roles/' + role})
                   }
+                },
+                error: function(data) {
+                  console.log('oops')
                 }
         })
       }
       function loadChecks() {
         $.ajax({type: "GET",
-                url: "/checks/" + target,
+                url: "/checks/host/" + target,
                 dataType: "json",
                 success: function(data) {
                   self.checks.removeAll()
                   for (var i in data.checks) {
-                    check_fields = {"check": null, "in_maintenance": null, "interval": null, "last": null, "next": null, "pending": null, "status": null, "flapping": null, "suspended": null, "out": null}
+                    check_fields = {"check": null, "in_maintenance": null, "interval": null, "last": null,
+                                    "next": null, "pending": null, "status": null, "flapping": null, "suspended": null,
+                                    "out": null, "_id": null}
                     raw = data.checks[i]
                     for (i in raw) {
                       if (i in check_fields) {
@@ -45,12 +51,77 @@
                     }
                     self.checks.push(check_fields)
                   }
+                },
+                error: function(data) {
+                  self.checks.removeAll()
                 }
+        })
+      }
+      function requeueCheck(target) {
+        $.ajax({type: "POST",
+                url: "/checks/id/" + target['_id'] + "/next",
+                dataType: "json",
+                async: false,
+                data: JSON.stringify({next: 'now'}),
+                contentType: "application/json",
+                success: function(data) {
+                  self.changes.push({'cid': target['check'], 'success': true, 'note': 'Requeued', 'ts': new Date().toUTCString()});
+                  //need to just remove check at $index form observable array
+                  loadChecks();
+                },
+                error: function(data) {
+                  console.log(data);
+                  self.changes.push({'cid': target['check'], 'success': false, 'note': 'Requeue failed', 'ts': new Date().toUTCString()});
+                  loadChecks();
+                }
+                
+        })
+      }
+      function suspendStateChange(target) {
+        if (target.suspended) {
+          new_state = false;
+        } else {
+          new_state = true;
+        }
+        $.ajax({type: "POST",
+                url: "/checks/id/" + target['_id'] + "/suspended",
+                dataType: "json",
+                async: false,
+                data: JSON.stringify({suspended: new_state}),
+                contentType: "application/json",
+                success: function(data) {
+                  self.changes.push({'cid': target['check'], 'success': true, 'note': 'suspend state changed', 'ts': new Date().toUTCString()});
+                  //need to just remove check at $index form observable array
+                  loadChecks();
+                },
+                error: function(data) {
+                  console.log(data);
+                  self.changes.push({'cid': target['check'], 'success': false, 'note': 'suspend state change failed', 'ts': new Date().toUTCString()});
+                  loadChecks();
+                }
+                
+        })
+      }
+      function deleteCheck(target) {
+        $.ajax({type: "DELETE",
+                url: "/checks/id/" + target['_id'],
+                async: false,
+                dataType: "json",
+                success: function(data) {
+                  self.changes.push({'cid': target['check'], 'success': true, 'note': 'deleted', 'ts': new Date().toUTCString()});
+                  loadChecks();
+                },
+                error: function(data) {
+                  console.log(data);
+                  self.changes.push({'cid': target['check'], 'success': false, 'note': 'delete failed', 'ts': new Date().toUTCString()});
+                  loadChecks();
+                }
+                
         })
       }
       loadHost();
       loadChecks();
-      var interval = setInterval(loadChecks, 5000);
+      var interval = setInterval(loadChecks, 30000);
     </script>
 
 {% endblock %}
@@ -67,25 +138,49 @@
             </h1>
         </div>
       </div>
+      
+      <div class="row-fluid">
+        <div data-bind="foreach: changes">
+          <div class="alert" data-bind="css: {'alert-success': success, 'alert-error': !success}">
+            <button type="button" class="close" data-dismiss="alert" data-bind="">&times;</button>
+            <span data-bind="text: ts"></span>: <span data-bind="text: cid"></span> <span data-bind="text: note"></span>
+          </div>
+        </div>
+      </div>
 
       <div class="row-fluid">
         <table class="table table-striped table-bordered table-hover">
           <thead>
             <tr>
-              <th>check</th>
-              <th>maintenance</th>
-              <th>interval</th>
-              <th>last</th>
-              <th>next</th>
-              <th>pending</th>
-              <th>status</th>
-              <th>flapping</th>
-              <th>suspended</th>
-              <th>output</th>
+              <th>Modify</th>
+              <th>Check</th>
+              <th>Maintenance</th>
+              <th>Interval</th>
+              <th>Last run time</th>
+              <th>Next run time</th>
+              <th>Pending</th>
+              <th>Status</th>
+              <th>Flapping</th>
+              <th>Suspended</th>
+              <th>Output</th>
+              <th>Delete</th>
             </tr>
           </thead>
           <tbody data-bind="foreach: checks">
             <tr>
+              <td>
+                <div class="btn-group">
+                  <a class="btn btn-inverse dropdown-toggle" data-toggle="dropdown" href="#">
+                    <span class="icon-wrench icon-white"></span>
+                  </a>
+                  <ul class="dropdown-menu">
+                    <!-- dropdown menu links -->
+                    <li><a href="#" data-bind="click: requeueCheck"><i class="icon-refresh"></i> Recheck now()</a></li>
+                    <li data-bind="ifnot: suspended"><a href="#" data-bind="click: suspendStateChange"><i class="icon-pause"></i> Suspend Check</a></li>
+                    <li data-bind="if: suspended"><a href="#" data-bind="click: suspendStateChange"><i class="icon-play"></i> Un-Suspend Check</a></li>
+                  </ul>
+                </div>
+              </td>
               <td><span class="label" data-bind="text: check, css: {'label-important': !status, 'label-info': pending, 'label-warning': suspended}"></span></td>
               <td><span data-bind="text: in_maintenance"></span></td>
               <td><span data-bind="text: interval"></span></td>
@@ -96,6 +191,7 @@
               <td><span data-bind="text: flapping"></span></td>
               <td><span data-bind="text: suspended"></span></td>
               <td><span data-bind="text: out"></span></td>
+              <td><button class="btn btn-danger" data-bind="click: deleteCheck"><i class="icon-trash icon-white"></i></button>
             </tr>
           </tbody>
         </table>

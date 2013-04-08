@@ -18,7 +18,7 @@ data_files = [('share/doc/stalker',
 
 setup(
     name = name,
-    version = "0.2",
+    version = "0.3",
     author = "Florian Hines",
     author_email = "syn@ronin.io",
     description = "Simple Monitoring System",
@@ -35,5 +35,5 @@ setup(
     include_package_data=True,
     zip_safe=False,
     scripts=['bin/stalker-agent', 'bin/stalker-manager', 'bin/stalker-runner',
-             'bin/stalker-web', 'bin/stalker-adduser'],
+             'bin/stalker-web',],
     data_files = data_files)

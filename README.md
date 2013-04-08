@@ -42,7 +42,10 @@ checks or configured hosts. In addition to the UI running on http://stalkerweb:5
 | /hosts/ | All hosts | GET |
 | /hosts/[hostname] |  Config for a specific host | GET |
 | /checks/ | All checks | GET |
-| /checks/[hostname] | Checks for a specific host | GET |
+| /checks/host/[hostname] | Checks for a specific host | GET |
+| /checks/id/[checkid] | A specific check | GET, DELETE |
+| /checks/id/[checkid]/next | Get or Set next run time | GET, POST |
+| /checks/id/[checkid]/suspended | Get or Set suspend state | GET, POST |
 | /checks/state/[state] |  All checks for a given state [alerting, pending, in_maintenance] | GET |
 
 ## stalker_manager

@@ -32,7 +32,7 @@
         })
       }
       loadChecks();
-      var interval = setInterval(loadChecks, 2000);
+      var interval = setInterval(loadChecks, 5000);
     </script>
 
 {% endblock %}
@@ -47,6 +47,7 @@
         <table class="table table-bordered table-striped table-hover">
           <thead>
             <tr>
+              <th></th>
               <th>host</th>
               <th>check</th>
               <th>maintenance</th>
@@ -62,6 +63,19 @@
           </thead>
           <tbody data-bind="foreach: checks">
             <tr data-bind="css: {error: !status, info: pending, warning: suspended}">
+              <td>
+                <div class="btn-group">
+                  <a class="btn btn-inverse dropdown-toggle" data-toggle="dropdown" href="#">
+                    <span class="icon-cog icon-white"></span>
+                  </a>
+                  <ul class="dropdown-menu">
+                    <!-- dropdown menu links -->
+                    <li><a href="#"><i class="icon-pencil"></i> Edit</a></li>
+                    <li><a href="#"><i class="icon-trash"></i> Delete</a></li>
+                    <li><a href="#"><i class="icon-ban-circle"></i> Ban</a></li>
+                  </ul>
+                </div>
+              </td>
               <td><a data-bind="attr: {href: hostname.url}, text: hostname.name"></a></td>
               <td><span data-bind="text: check"></span></td>
               <td><span data-bind="text: in_maintenance"></span></td>
