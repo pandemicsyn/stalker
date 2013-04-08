@@ -1,14 +1,19 @@
-from flask import Flask, request, abort, jsonify, render_template
-from flask.ext.pymongo import PyMongo
+from flask import request, abort, jsonify, render_template, session, redirect
 import pymongo
 from time import time
 from random import choice
-
-app = Flask(__name__, instance_relative_config=True)
-app.config['MONGO_DBNAME'] = 'stalkerweb'
-mongo = PyMongo(app)
+from stalkerweb.auth import is_valid_email_login, login_required
+from stalkerweb import app, mongo
+from flask.ext.wtf import Form, Required, PasswordField, BooleanField
+from flask.ext.wtf.html5 import EmailField
 
 REGISTER_KEY = 'itsamario'
+
+
+class SignInForm(Form):
+    email = EmailField(validators=[Required()])
+    password = PasswordField(validators=[Required()])
+    remember_me = BooleanField()
 
 
 def _rand_start():
@@ -84,6 +89,7 @@ def register():
 
 @app.route("/hosts/", defaults={'host': None})
 @app.route("/hosts/<host>")
+@login_required
 def hosts(host):
     if not host:
         q = [x for x in mongo.db.hosts.find(fields={'_id': False})]
@@ -99,6 +105,7 @@ def hosts(host):
 
 @app.route("/checks/", defaults={'host': None})
 @app.route("/checks/<host>")
+@login_required
 def checks(host):
     if not host:
         q = [x for x in mongo.db.checks.find(fields={'_id': False})]
@@ -112,6 +119,7 @@ def checks(host):
 
 
 @app.route('/checks/state/<state>')
+@login_required
 def check_state(state):
     if state == 'alerting':
         q = [x for x in mongo.db.checks.find(
@@ -139,6 +147,7 @@ def check_state(state):
 
 
 @app.route('/findhost')
+@login_required
 def findhost():
     """Just used for the type ahead"""
     # probably should cache hosts in memcached/redis for type ahead crap
@@ -150,22 +159,26 @@ def findhost():
 
 
 @app.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
 
 @app.route('/view/checks')
+@login_required
 def view_checks():
     return render_template('allchecks.html')
 
 
 @app.route('/view/hosts')
+@login_required
 def view_hosts():
     return render_template('hosts.html')
 
 
 @app.route("/view/host/", defaults={'hostname': None})
 @app.route('/view/host/<hostname>')
+@login_required
 def view_single_host(hostname):
     if request.args.get('search'):
         hostname = request.args.get('search')
@@ -174,6 +187,33 @@ def view_single_host(hostname):
     else:
         return render_template('host.html', target=hostname)
 
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return render_template('loggedout.html')
+
+
+@app.route('/signin', methods=["GET", "POST"])
+def signin():
+    form = SignInForm()
+    if form.validate_on_submit():
+        username = form.email.data.strip()
+        password = form.password.data.strip()
+        if is_valid_email_login(username, password):
+            session['logged_in'] = True
+            if form.remember_me.data:
+                session.permanent = True
+            else:
+                session.permanent = False
+            print request.args.get('next')
+            if request.args.get('next') == 'signin':
+                return redirect("/")
+            else:
+                return redirect(request.args.get('next') or request.referrer or "/")
+        else:
+            return render_template('signin.html', form=form, error="Failed")
+    return render_template('signin.html', form=form, error=None)
 
 @app.errorhandler(404)
 def page_not_found(e):

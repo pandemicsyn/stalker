@@ -35,5 +35,5 @@ setup(
     include_package_data=True,
     zip_safe=False,
     scripts=['bin/stalker-agent', 'bin/stalker-manager', 'bin/stalker-runner',
-             'bin/stalker-web'],
+             'bin/stalker-web', 'bin/stalker-adduser'],
     data_files = data_files)

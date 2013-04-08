@@ -1,6 +1,8 @@
 redis
 Flask
 Flask-pymongo
+Flask-bcrypt
+Flask-WTF
 pymongo
 eventlet
 hiredis

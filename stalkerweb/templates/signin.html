@@ -39,18 +39,32 @@
 
 {% block body %}
 
-    <div class="container">
 
-      <form class="form-signin">
+<div class="container-fluid">
+  <div class="row-fluid">
+    <div class="hero-unit"  style="background-color:rgba(255,255,255,0.05); font-family: 'Droid Sans';">
+      <!--<h1 style="color: #317eac; font-family: 'Droid Sans';">&lt;Stalker&gt;</h1>
+      <p>Monitor All The Things!</p> -->
+      <form class="form-signin" action="" method="post">
+
+        {{ form.hidden_tag() }}
+        {{ form.csrf_token }}
         <h2 class="form-signin-heading">Please sign in</h2>
-        <input type="text" class="input-block-level" placeholder="Email address">
-        <input type="password" class="input-block-level" placeholder="Password">
+        {% if error %}
+            <img src="/static/img/nope.gif">
+        {% endif %}
+        {{ form.email(class="input-block-level", required="required", placeholder="Email address") }}
+        {{ form.password(class="input-block-level", required="required", placeholder="Password") }}
         <label class="checkbox">
-          <input type="checkbox" value="remember-me"> Remember me
+          {{ form.remember_me(value="remember-me")}} Remember me
         </label>
         <button class="btn btn-large btn-primary" type="submit">Sign in</button>
+        {% if error %}
+            <span class="label label-important">Invalid user/pass. Try again.</span>
+        {% endif %}
+
       </form>
-
-    </div> <!-- /container -->
-
+    </div>
+  </div>
+</div>
 {% endblock %}
