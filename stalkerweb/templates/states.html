@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block head %}
+
+    <script>
+      function AppViewModel() {
+        var self = this;
+        self.availableStates = ko.observableArray(['alerting', 'pending', 'in_maintenance', 'suspended']);
+        self.selectedState = ko.observable('{{ state }}');
+        self.selectedState.subscribe(function(newValue) {
+          loadState();
+        });
+        self.checks = ko.observableArray([]);
+      }
+
+    </script>
+    <link data-bind="attr: {href: themeURL" rel="stylesheet">
+
+{% endblock %}
+{% block body %}
+    <div class="container-fluid">
+
+      <div class="row-fluid">
+        <div class="page-header"><h1><span data-bind="text: selectedState"></span></h1></div>
+      </div>
+
+      <div class="row-fluid">
+        <table class="table table-bordered table-striped table-hover">
+          <thead>
+            <tr>
+              <th>hostname</th>
+              <th>check</th>
+              <th>in_maintenance</th>
+              <th>interval</th>
+              <th>last</th>
+              <th>next</th>
+              <th>flapping</th>
+              <th>suspended</th>
+              <th>output</th>
+            </tr>
+          </thead>
+          <tbody data-bind="foreach: checks">
+            <tr data-bind="css: {error: !status, info: pending, warning: suspended}">
+              <td><a data-bind="attr: {href: hostname.url}, text: hostname.name"></a></td>
+              <td><span data-bind="text: check"></span></td>
+              <td><span data-bind="text: in_maintenance"></span></td>
+              <td><span data-bind="text: interval"></span></td>
+              <td><span data-bind="text: last"></span></td>
+              <td><span data-bind="text: next"></span></td>
+              <td><span data-bind="text: flapping"></span></td>
+              <td><span data-bind="text: suspended"></span></td>
+              <td><span data-bind="text: out"></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="row-fluid">
+        <span class="label label-important"> Failing Check</span>
+        <span class="label label-info"> Pending Check </span>
+        <span class="label label-warning"> Suspended Check </span>
+      </div>
+
+    </div> <!-- /container -->
+    
+    <script>
+      ko.applyBindings(AppViewModel());
+      
+      function loadState(data) {
+        $.ajax({type: "GET",
+                url: "/checks/state/" + self.selectedState(),
+                dataType: "json",
+                success: function(data) {
+                  self.checks.removeAll()
+                  for (var i in data.alerting) {
+                    check_fields = {"hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null, "last": null, "next": null, "pending": null, "status": null, "flapping": null, "suspended": null, "out": null}
+                    raw = data.alerting[i]
+                    for (i in raw) {
+                      if (i in check_fields) {
+                        if (i == 'last' || i == 'next') {
+                          check_fields[i] = new Date(raw[i]*1000).toUTCString();
+                        } else if (i == 'hostname') {
+                          check_fields[i] = {"name": raw[i], "url": "/view/host/" + raw[i]}
+                        } else {
+                          check_fields[i] = raw[i]
+                        }
+                      }
+                    }
+                    self.checks.push(check_fields)
+                  }
+                }
+        })
+      }
+      loadState();
+      var interval = setInterval(loadState, 5000);
+    </script>
+{% endblock %}
+

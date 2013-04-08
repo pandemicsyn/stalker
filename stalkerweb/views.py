@@ -3,16 +3,15 @@ import pymongo
 from bson import ObjectId
 from time import time
 from random import choice
-from stalkerweb.auth import is_valid_email_login, login_required
+from stalkerweb.auth import is_valid_login, login_required
 from stalkerweb import app, mongo
-from flask.ext.wtf import Form, Required, PasswordField, BooleanField
-from flask.ext.wtf.html5 import EmailField
+from flask.ext.wtf import Form, Required, TextField, PasswordField, BooleanField
 
 REGISTER_KEY = 'itsamario'
 
 
 class SignInForm(Form):
-    email = EmailField(validators=[Required()])
+    username = TextField(validators=[Required()])
     password = PasswordField(validators=[Required()])
     remember_me = BooleanField()
 
@@ -119,6 +118,27 @@ def checks(host):
     else:
         abort(404)
 
+@app.route('/checks/id/<checkid>', methods=['GET', 'DELETE'])
+@login_required
+def checks_by_id(checkid):
+    if request.method == 'GET':
+        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)})
+        if check:
+            check['_id'] = str(check['_id'])
+            return jsonify({'check': check})
+        else:
+            abort(404)
+    elif request.method == 'DELETE':
+        try:
+            q = mongo.db.checks.remove({'_id': ObjectId(checkid)}, safe=True)
+            return jsonify({'success': True})
+        except pymongo.errors.InvalidId:
+            abort(404)
+        except pymongo.errors.OperationFailure:
+            abort(500)
+    else:
+        abort(400)
+
 @app.route('/checks/id/<checkid>/next', methods=['GET', 'POST'])
 @login_required
 def check_next(checkid):
@@ -171,27 +191,6 @@ def check_suspended(checkid):
         except (KeyError, ValueError,  pymongo.errors.InvalidId):
             abort(400)
 
-@app.route('/checks/id/<checkid>', methods=['GET', 'DELETE'])
-@login_required
-def checks_by_id(checkid):
-    if request.method == 'GET':
-        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)})
-        if check:
-            check['_id'] = str(check['_id'])
-            return jsonify({'check': check})
-        else:
-            abort(404)
-    elif request.method == 'DELETE':
-        try:
-            q = mongo.db.checks.remove({'_id': ObjectId(checkid)}, safe=True)
-            return jsonify({'success': True})
-        except pymongo.errors.InvalidId:
-            abort(404)
-        except pymongo.errors.OperationFailure:
-            abort(500)
-    else:
-        abort(400)
-
 @app.route('/checks/state/<state>')
 @login_required
 def check_state(state):
@@ -209,13 +208,20 @@ def check_state(state):
             return jsonify({'pending': q})
         else:
             return jsonify({'pending': []})
-    elif state == 'maintenance':
+    elif state == 'in_maintenance':
         q = [x for x in mongo.db.checks.find(
             {'in_maintenance': True}, fields={'_id': False})]
         if q:
             return jsonify({'in_maintenance': q})
         else:
             return jsonify({'in_maintenance': []})
+    elif state == 'suspended':
+        q = [x for x in mongo.db.checks.find(
+            {'suspended': True}, fields={'_id': False})]
+        if q:
+            return jsonify({'suspended': q})
+        else:
+            return jsonify({'suspended': []})
     else:
         abort(400)
              
@@ -238,6 +244,14 @@ def findhost():
 def index():
     return render_template('index.html')
 
+@app.route('/view/states', defaults={'state': None})
+@app.route('/view/states/<state>')
+@login_required
+def view_states(state):
+    if state:
+        return render_template('states.html', state=state)
+    else:
+        return render_template('states.html', state='alerting')
 
 @app.route('/view/checks')
 @login_required
@@ -271,9 +285,9 @@ def logout():
 def signin():
     form = SignInForm()
     if form.validate_on_submit():
-        username = form.email.data.strip()
+        username = form.username.data.strip()
         password = form.password.data.strip()
-        if is_valid_email_login(username, password):
+        if is_valid_login(username, password):
             session['logged_in'] = True
             if form.remember_me.data:
                 session.permanent = True

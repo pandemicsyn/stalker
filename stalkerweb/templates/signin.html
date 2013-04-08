@@ -53,7 +53,7 @@
         {% if error %}
             <img src="/static/img/nope.gif">
         {% endif %}
-        {{ form.email(class="input-block-level", required="required", placeholder="Email address") }}
+        {{ form.username(class="input-block-level", required="required", placeholder="Username") }}
         {{ form.password(class="input-block-level", required="required", placeholder="Password") }}
         <label class="checkbox">
           {{ form.remember_me(value="remember-me")}} Remember me
