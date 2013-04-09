@@ -70,9 +70,9 @@
                 dataType: "json",
                 success: function(data) {
                   self.checks.removeAll()
-                  for (var i in data.alerting) {
+                  for (var i in data[self.selectedState()]) {
                     check_fields = {"hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null, "last": null, "next": null, "pending": null, "status": null, "flapping": null, "suspended": null, "out": null}
-                    raw = data.alerting[i]
+                    raw = data[self.selectedState()][i]
                     for (i in raw) {
                       if (i in check_fields) {
                         if (i == 'last' || i == 'next') {
@@ -90,7 +90,7 @@
         })
       }
       loadState();
-      var interval = setInterval(loadState, 5000);
+      var interval = setInterval(loadState, 2000);
     </script>
 {% endblock %}
 

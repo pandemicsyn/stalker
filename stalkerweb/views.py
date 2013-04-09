@@ -144,7 +144,7 @@ def hosts(host):
         if q:
             q = {'hosts': q}
     else:
-        q = mongo.db.hosts.find_one({'hostname': host}, fields={'_id': False})
+        q = mongo.db.hosts.find_one({'$or': [{'hostname': host}, {'ip': host}]}, fields={'_id': False})
     if q:
         return jsonify(q)
     else:
@@ -158,7 +158,7 @@ def checks(host):
     if not host:
         q = [x for x in mongo.db.checks.find()]
     else:
-        q = [x for x in mongo.db.checks.find({'hostname': host})]
+        q = [x for x in mongo.db.checks.find({'$or': [{'hostname': host}, {'ip': host}]})]
     if q:
         for check in q:
             check['_id'] = str(check['_id'])
@@ -291,9 +291,14 @@ def findhost():
     # probably should cache hosts in memcached/redis for type ahead crap
     if not request.args.get('q'):
         abort(400)
-    q = [x['hostname'] for x in mongo.db.hosts.find({'hostname': {'$regex': '^%s' % request.args.get('q')}}, fields={'hostname': True, '_id': False})]
-    print q
-    return ",".join(q)
+    result = []
+    for i in mongo.db.hosts.find({'$or': [{'hostname': {'$regex': '^%s' % request.args.get('q')}}, {'ip': {'$regex': '^%s' % request.args.get('q')}}]}, fields={'hostname': True, 'ip': True, '_id': False}):
+        if i['hostname'].startswith(request.args.get('q')):
+            result.append(i['hostname'])
+        else:
+            result.append(i['ip'])
+    print result
+    return ",".join(result)
 
 
 @app.route('/')
