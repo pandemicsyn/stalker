@@ -1,0 +1,13 @@
+import json
+import urllib2
+
+url = 'http://localhost:5000/checks/state/alerting'
+headers = {'X-API-KEY': 'something'}
+
+req = urllib2.Request(url, headers=headers)
+res = urllib2.urlopen(req)
+content = res.read()
+parsed = json.loads(content)
+for i in parsed['alerting']:
+    clean_out = " ".join([x for x in i['out'].split('\n')])
+    print '%s on %s is alerting because "%s"' % (i['check'], i['hostname'], clean_out)
