@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block head %}
+    <style type="text/css">
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
+        background-color: #f5f5f5;
+      }
+
+      .form-signin {
+        max-width: 500px;
+        padding: 19px 29px 29px;
+        margin: 0 auto 25px;
+        background-color: #fff;
+        border: 1px solid #e5e5e5;
+        -webkit-border-radius: 5px;
+           -moz-border-radius: 5px;
+                border-radius: 5px;
+        -webkit-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+           -moz-box-shadow: 0 1px 2px rgba(0,0,0,.05);
+                box-shadow: 0 1px 2px rgba(0,0,0,.05);
+      }
+      .form-signin .form-signin-heading,
+      .form-signin .checkbox {
+        margin-bottom: 10px;
+      }
+      .form-signin input[type="text"],
+      .form-signin input[type="password"] {
+        font-size: 16px;
+        height: auto;
+        margin-bottom: 15px;
+        padding: 7px 9px;
+      }
+
+    </style>
+
+    <script>
+      function AppViewModel() {
+        var self = this;
+        self.username = ko.observable('{{ session.username }}');
+        self.email = ko.observable('');
+        self.changes = ko.observableArray();
+        self.activeTheme = ko.observableArray();
+        self.availableThemes = ko.observableArray(['cosmo', 'cerulean', 'cyborg', 'slate', 'spacelab', 'united']);
+      }
+    
+    </script>
+
+{% endblock %}
+
+{% block body %}
+
+    <div class="container">
+    <form class="form-signin">
+        <h1 class="form-signin-heading">View/Edit User</h1>
+        <table class="table table-bordered table-striped">
+          <tbody>
+            <tr>
+                <td>Username:</td>
+                <td><span data-bind="text: self.username"></span></td>
+            </tr>
+            <tr>
+                <td>Email:</td>
+                <td><span data-bind="text: self.email"></span></td>
+            </tr>
+            <tr>
+                <td class="text-right">Theme:</td>
+                <td>
+                    <select data-bind="options: availableThemes, selectedOptions: activeTheme"></select>
+                </td>
+            </tr>
+          </tbody>
+        </table>
+        <a class="btn btn-primary" data-bind="click: setTheme">Save</a>
+        <div data-bind="foreach: changes">
+          <div class="alert" data-bind="css: {'alert-success': success, 'alert-error': !success}">
+            <button type="button" class="close" data-dismiss="alert" data-bind="">&times;</button>
+            <span data-bind="text: ts"></span>: <span data-bind="text: note"></span>
+          </div>
+        </div>
+    </form>
+    </div> <!-- /container -->
+
+    <script>
+      ko.applyBindings(AppViewModel());
+      
+      function setTheme(data) {
+        $.ajax({type: "POST",
+                url: "/user/" + self.username(),
+                dataType: "json",
+                async: false,
+                data: JSON.stringify({theme: self.activeTheme()[0]}),
+                contentType: "application/json",
+                success: function(data) {
+                  self.changes.push({'success': true, 'note': 'theme changed', 'ts': new Date().toUTCString()});
+                },
+                error: function(data) {
+                  console.log(data);
+                  self.changes.push({'success': false, 'note': 'theme change failed', 'ts': new Date().toUTCString()});
+                }
+        })
+      }
+      
+      function loadUser(data) {
+        $.ajax({type: "GET",
+                url: "/user/" + self.username(),
+                dataType: "json",
+                success: function(data) {
+                    self.email(data.email)
+                    self.activeTheme.removeAll()
+                    self.activeTheme.push(data.theme)
+                    console.log(data)
+                },
+                error: function(data) {
+                    console.log(data)
+                }
+        })
+      }
+      loadUser();
+    </script>
+
+
+{% endblock %}

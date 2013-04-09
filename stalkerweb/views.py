@@ -3,7 +3,7 @@ import pymongo
 from bson import ObjectId
 from time import time
 from random import choice
-from stalkerweb.auth import is_valid_login, login_required
+from stalkerweb.auth import is_valid_login, login_required, change_pass, remove_user
 from stalkerweb import app, mongo
 from flask.ext.wtf import Form, Required, TextField, PasswordField, BooleanField
 
@@ -14,6 +14,12 @@ class SignInForm(Form):
     username = TextField(validators=[Required()])
     password = PasswordField(validators=[Required()])
     remember_me = BooleanField()
+
+def _get_users_theme(username):
+    default = {'theme': 'cerulean'}
+    q = mongo.db.users.find_one({'username': username},
+                                {'theme': 1, '_id': False})
+    return q.get('theme', 'cerulean')
 
 
 def _rand_start():
@@ -62,8 +68,7 @@ def register():
     checks = request.json['checks']
     roles = request.json['roles']
     try:
-        # TODO: need a unique constraint on hostname (or just do _id =
-        # hostname)
+        # TODO: need a unique constraint on hostname
         q = mongo.db.hosts.update({'hostname': hid},
                                   {"$set": {'hostname': hid,
                                             'ip': request.remote_addr,
@@ -85,6 +90,49 @@ def register():
         print err
         abort(400)
     return jsonify({'status': 'ok'})
+
+
+@app.route("/user/", defaults={'username': None})
+@app.route("/user/<username>", methods=['GET', 'POST', 'DELETE'])
+@login_required
+def users(username):
+    if not username:
+        if request.method == 'DELETE':
+            abort(400) #don't allow deletes with out user being set explicitly
+        if session.get('username', False):
+            username = session.get('username')
+        else:
+            abort(400)
+    if request.method == 'GET':
+        q = mongo.db.users.find_one({'username': username}, {'hash': False})
+        if q:
+            q['_id'] = str(q['_id'])
+            if 'theme' not in q:
+                q['theme'] = 'cerulean'
+            return jsonify(q)
+        else:
+            abort(404)
+    elif request.method == 'DELETE':
+        return jsonify({'success': remove_user(username)})
+    elif request.method == 'POST':
+        fields = {}
+        if not request.json:
+            abort(400)
+        if 'theme' in request.json:
+            if request.json['theme'] in app.config['THEMES']:
+                fields['theme'] = request.json['theme']
+            else:
+                abort(400)
+        if 'email' in request.json:
+            fields['email'] = request.json['email']
+        q = mongo.db.users.update({'username': username}, {"$set": fields}, upsert=False)
+        if q:
+            if session and 'theme' in fields:
+                session['theme'] = fields['theme']
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False})
+    
 
 
 @app.route("/hosts/", defaults={'host': None})
@@ -118,6 +166,7 @@ def checks(host):
     else:
         abort(404)
 
+
 @app.route('/checks/id/<checkid>', methods=['GET', 'DELETE'])
 @login_required
 def checks_by_id(checkid):
@@ -139,11 +188,13 @@ def checks_by_id(checkid):
     else:
         abort(400)
 
+
 @app.route('/checks/id/<checkid>/next', methods=['GET', 'POST'])
 @login_required
 def check_next(checkid):
     if request.method == 'GET':
-        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)}, {'next': 1})
+        check = mongo.db.checks.find_one(
+            {'_id': ObjectId(checkid)}, {'next': 1})
         if check:
             check['_id'] = str(check['_id'])
             return jsonify({'check': check})
@@ -154,21 +205,25 @@ def check_next(checkid):
             abort(400)
         try:
             if request.json['next'] == 'now':
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)}, {'$set': {'next': time()-1}})
+                q = mongo.db.checks.update(
+                    {'_id': ObjectId(checkid)}, {'$set': {'next': time() - 1}})
             else:
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)}, {'$set': {'next': int(request.json['next'])}})
+                q = mongo.db.checks.update({'_id': ObjectId(
+                    checkid)}, {'$set': {'next': int(request.json['next'])}})
             if q['n'] != 0:
                 return jsonify({'success': True})
             else:
                 abort(404)
-        except (KeyError, ValueError,  pymongo.errors.InvalidId):
+        except (KeyError, ValueError, pymongo.errors.InvalidId):
             abort(400)
-            
+
+
 @app.route('/checks/id/<checkid>/suspended', methods=['GET', 'POST'])
 @login_required
 def check_suspended(checkid):
     if request.method == 'GET':
-        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)}, {'suspended': 1})
+        check = mongo.db.checks.find_one(
+            {'_id': ObjectId(checkid)}, {'suspended': 1})
         if check:
             check['_id'] = str(check['_id'])
             return jsonify({'check': check})
@@ -179,17 +234,20 @@ def check_suspended(checkid):
             abort(400)
         try:
             if request.json['suspended'] is True:
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)}, {'$set': {'suspended': True}})
+                q = mongo.db.checks.update(
+                    {'_id': ObjectId(checkid)}, {'$set': {'suspended': True}})
             elif request.json['suspended'] is False:
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)}, {'$set': {'suspended': False}})
+                q = mongo.db.checks.update({'_id': ObjectId(
+                    checkid)}, {'$set': {'suspended': False}})
             else:
                 abort(400)
             if q['n'] != 0:
                 return jsonify({'success': True})
             else:
                 abort(404)
-        except (KeyError, ValueError,  pymongo.errors.InvalidId):
+        except (KeyError, ValueError, pymongo.errors.InvalidId):
             abort(400)
+
 
 @app.route('/checks/state/<state>')
 @login_required
@@ -224,8 +282,7 @@ def check_state(state):
             return jsonify({'suspended': []})
     else:
         abort(400)
-             
-            
+
 
 @app.route('/findhost')
 @login_required
@@ -244,6 +301,7 @@ def findhost():
 def index():
     return render_template('index.html')
 
+
 @app.route('/view/states', defaults={'state': None})
 @app.route('/view/states/<state>')
 @login_required
@@ -252,6 +310,7 @@ def view_states(state):
         return render_template('states.html', state=state)
     else:
         return render_template('states.html', state='alerting')
+
 
 @app.route('/view/checks')
 @login_required
@@ -265,7 +324,7 @@ def view_hosts():
     return render_template('hosts.html')
 
 
-@app.route("/view/host/", defaults={'hostname': None})
+@app.route('/view/host/', defaults={'hostname': None})
 @app.route('/view/host/<hostname>')
 @login_required
 def view_single_host(hostname):
@@ -276,10 +335,16 @@ def view_single_host(hostname):
     else:
         return render_template('host.html', target=hostname)
 
-@app.route('/logout')
-def logout():
+@app.route('/view/user/<username>')
+@login_required
+def view_user(username):
+    return render_template('user.html')
+
+@app.route('/signout')
+def signout():
     session.pop('logged_in', None)
-    return render_template('loggedout.html')
+    return render_template('signout.html')
+
 
 @app.route('/signin', methods=["GET", "POST"])
 def signin():
@@ -288,12 +353,13 @@ def signin():
         username = form.username.data.strip()
         password = form.password.data.strip()
         if is_valid_login(username, password):
+            session['theme'] = _get_users_theme(username)
             session['logged_in'] = True
+            session['username'] = username
             if form.remember_me.data:
                 session.permanent = True
             else:
                 session.permanent = False
-            print request.args.get('next')
             if request.args.get('next') == 'signin':
                 return redirect("/")
             else:
@@ -301,6 +367,7 @@ def signin():
         else:
             return render_template('signin.html', form=form, error="Failed")
     return render_template('signin.html', form=form, error=None)
+
 
 @app.errorhandler(404)
 def page_not_found(e):

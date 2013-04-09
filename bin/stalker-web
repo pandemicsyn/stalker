@@ -14,14 +14,36 @@ def main():
     args.add_option('--debug', '-d', action="store_true",
                     help="default = False")
     args.add_option('--add-user', '-a', help="Add a user")
+    args.add_option('--init-db', action="store_true",
+                    help="Initializes a stalker db. Only run at setup.")
     options, arguments = args.parse_args()
+
+    if options.init_db:
+        with stalkerweb.app.test_request_context():
+            print stalkerweb.mongo.db.hosts.drop()
+            print stalkerweb.mongo.db.hosts.create_index('hostname', unique=True)
+            print stalkerweb.mongo.db.hosts.create_index('ip', unique=True)
+            print stalkerweb.mongo.db.checks.drop()
+            print stalkerweb.mongo.db.checks.create_index('alerting')
+            print stalkerweb.mongo.db.checks.create_index('pending')
+            print stalkerweb.mongo.db.checks.create_index('hostname')
+            print stalkerweb.mongo.db.users.drop()
+            print stalkerweb.mongo.db.users.create_index('username', unique=True)
+        sys.exit()
 
     if options.add_user:
         with stalkerweb.app.test_request_context():
             username = options.add_user
             password = getpass.getpass('Enter password for %s: ' % username).strip()
+            password2 = getpass.getpass('One more time to confirm: ').strip()
+            if password != password2:
+                print "Password doesn't match, way to go."
+                sys.exit(1)
             email = raw_input('Enter email: ').strip()
-            stalkerweb.auth.add_user(username, password, email)
+            if stalkerweb.auth.add_user(username, password, email):
+                print "Add %s" % username
+            else:
+                print "Error. Does the user already exist ?"
         sys.exit()
     else:
         stalkerweb.app.run(host=options.host, port=options.port,

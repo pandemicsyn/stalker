@@ -15,7 +15,7 @@ def is_valid_email_login(email, password):
         return False
 
 def is_valid_login(username, password):
-    uinfo = mongo.db.users.find_one({'_id': username})
+    uinfo = mongo.db.users.find_one({'username': username})
     if uinfo:
         if check_password_hash(uinfo['hash'], password):
             return True
@@ -27,12 +27,35 @@ def is_valid_login(username, password):
 def add_user(username, password, email):
     pw_hash = generate_password_hash(password)
     try:
-        uid = mongo.db.users.insert({'_id': username, 'hash': pw_hash,
-                                  'email': email})
+        uid = mongo.db.users.insert({'username': username, 'hash': pw_hash,
+                                     'email': email})
         return True
     except pymongo.errors.DuplicateKeyError:
         return False
 
+def change_pass(username, password):
+    pw_hash = generate_password_hash(password)
+    try:
+        q = mongo.db.users.update({'username': username}, {"$set": {'hash': pw_hash}}, upsert=False)
+        print q
+        if q['updatedExisting']:
+            return True
+        else:
+            return False
+    except Exception as err:
+        print err
+        return False
+        
+def remove_user(username):
+    try:
+        q = mongo.db.users.remove({'username': username}, safe=True)
+        if q['n'] == 1:
+            return True
+        else:
+            return False
+    except Exception as err:
+        print err
+        return False
 
 def login_required(f):
     @wraps(f)
