@@ -9,11 +9,8 @@ name = "stalker"
 data_files = [('share/doc/stalker',
                ['README.md',
                 'etc/stalker-agent.conf',
-                'etc/stalker-agent.init',
                 'etc/stalker-manager.conf',
-                'etc/stalker-manager.init',
                 'etc/stalker-runner.conf',
-                'etc/stalker-runner.init',
                ])]
 
 setup(

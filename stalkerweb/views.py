@@ -16,7 +16,6 @@ class SignInForm(Form):
     remember_me = BooleanField()
 
 def _get_users_theme(username):
-    default = {'theme': 'cerulean'}
     q = mongo.db.users.find_one({'username': username},
                                 {'theme': 1, '_id': False})
     return q.get('theme', 'cerulean')

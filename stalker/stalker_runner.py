@@ -5,7 +5,6 @@ import eventlet
 from bson.json_util import loads
 from stalker_utils import Daemon, get_logger
 eventlet.monkey_patch()
-
 import redis
 from pymongo import MongoClient
 
@@ -34,6 +33,8 @@ class StalkerRunner(object):
         self.checks = self.db['checks']
         self.flap_window = int(conf.get('flap_window', '1200'))
         self.flap_threshold = int(conf.get('flap_threshold', '3'))
+        self.alert_threshold = int(conf.get('alert_threshold', '2'))
+        self.alert_expire = int(conf.get('alert_expire', '1800'))
 
     def _get_checks(self, max_count=100, max_time=2, timeout=2):
             """Gather some checks off the Redis queue and batch them up"""
@@ -65,11 +66,43 @@ class StalkerRunner(object):
             raise Exception("No content")
         return loads(content)
 
-    def status_changed(self, host, check, status):
-        self.rc.incr("flap:%s:%s" % (host, check))
-        self.rc.expire("flap:%s:%s" % (host, check), self.flap_window)
-        # TODO: log state change
-        # TODO: detect cascading failures here ?
+    def emit_alert(self, check):
+        self.logger.info('alert %s' % check)
+
+    def status_update(self, host, check, status, previous_status):
+        flapid = "flap:%s:%s" % (host, check)
+        failid = "failed:%s:%s" % (host, check['check'])
+        notifyid = "notified:%s:%s" % (host, check['check'])
+        if status != previous_status:
+            #state changed incr flap counter
+            self.rc.incr(flapid)
+            self.rc.expire(flapid, self.flap_window)
+        if status is False:
+            self.rc.incr(failid)
+            if self.flapping(flapid):
+                #we failed again but it looks like we're flapping
+                self.logger.info('%s is flapping - skipping notification.' % flapid)
+                self.logger.info('%s:%s failure # %d'% (host, check['check'], int(self.rc.get(failid) or 0)))
+            else:
+                fail_count = int(self.rc.get(failid) or 0)
+                notify_count = int(self.rc.get(notifyid) or 0)
+                if fail_count >= self.alert_threshold:
+                    if notify_count > 0:
+                        self.logger.info('%s:%s failure # %d - previously notified' % (host, check['check'], fail_count))
+                        #We've already emited an alert
+                    else:
+                        #emit an alert
+                        self.logger.info('%s:%s failure # %d'% (host, check['check'], fail_count))
+                        self.emit_alert(check)
+                        self.rc.setex(notifyid, 1, self.alert_expire)
+                else:
+                    #we failed but haven't reached the alert threshold yet
+                    self.logger.info('%s:%s failure # %d' % (host, check['check'], fail_count))
+        else:
+            if previous_status is False:
+                self.logger.info('%s:%s alert cleared' % (host, check['check']))
+                #check is responding again, clear alert
+                self.rc.delete(notifyid)
 
     def flapping(self, flapid):
         flap_count = int(self.rc.get(flapid) or 0)
@@ -93,8 +126,8 @@ class StalkerRunner(object):
             result = {check_name: {'status': 2, 'out': '', 'err': str(err)}}
         now = time()
         if result[check_name]['status'] == 0:
-            if current_status is not True:
-                self.status_changed(host, check_name, True)
+            self.rc.set("failed:%s:%s" % (host, check_name), "0")
+            self.status_update(host, check, True, current_status)
             u = self.checks.update({'_id': check['_id']},
                                    {"$set": {'pending': False, 'status': True,
                                              'flapping': self.flapping(flapid),
@@ -103,8 +136,7 @@ class StalkerRunner(object):
                                              'out': result[check_name]['out']
                                              }})
         else:
-            if current_status is not False:
-                self.status_changed(host, check_name, False)
+            self.status_update(host, check, False, current_status)
             u = self.checks.update({'_id': check['_id']},
                                    {"$set": {'pending': False, 'status': False,
                                              'flapping': self.flapping(flapid),
