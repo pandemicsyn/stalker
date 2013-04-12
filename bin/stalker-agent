@@ -5,6 +5,7 @@ import optparse
 from stalker.stalker_utils import readconf
 from stalker.stalker_agent import SADaemon, StalkerAgent
 
+
 def run_server():
     """stat/stop/restart server"""
     usage = '''

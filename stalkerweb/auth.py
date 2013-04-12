@@ -4,6 +4,7 @@ from functools import wraps
 from stalkerweb import mongo, app
 import pymongo
 
+
 def is_valid_email_login(email, password):
     uinfo = mongo.db.users.find_one({'email': email})
     if uinfo:
@@ -13,6 +14,7 @@ def is_valid_email_login(email, password):
             return False
     else:
         return False
+
 
 def is_valid_login(username, password):
     uinfo = mongo.db.users.find_one({'username': username})
@@ -24,6 +26,7 @@ def is_valid_login(username, password):
     else:
         return False
 
+
 def add_user(username, password, email):
     pw_hash = generate_password_hash(password)
     try:
@@ -33,10 +36,12 @@ def add_user(username, password, email):
     except pymongo.errors.DuplicateKeyError:
         return False
 
+
 def change_pass(username, password):
     pw_hash = generate_password_hash(password)
     try:
-        q = mongo.db.users.update({'username': username}, {"$set": {'hash': pw_hash}}, upsert=False)
+        q = mongo.db.users.update({'username': username},
+                                  {"$set": {'hash': pw_hash}}, upsert=False)
         print q
         if q['updatedExisting']:
             return True
@@ -45,7 +50,8 @@ def change_pass(username, password):
     except Exception as err:
         print err
         return False
-        
+
+
 def remove_user(username):
     try:
         q = mongo.db.users.remove({'username': username}, safe=True)
@@ -56,6 +62,7 @@ def remove_user(username):
     except Exception as err:
         print err
         return False
+
 
 def login_required(f):
     @wraps(f)

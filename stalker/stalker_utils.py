@@ -8,6 +8,7 @@ from signal import SIGTERM
 from ConfigParser import ConfigParser, RawConfigParser
 from logging.handlers import TimedRotatingFileHandler
 
+
 def get_logger(name, log_path='/var/log/stalker.log', level=logging.INFO,
                count=7):
     logger = logging.getLogger(name)
@@ -18,6 +19,7 @@ def get_logger(name, log_path='/var/log/stalker.log', level=logging.INFO,
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     return logger
+
 
 class FileLikeLogger(object):
 

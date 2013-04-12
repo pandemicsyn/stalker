@@ -74,34 +74,39 @@ class StalkerRunner(object):
         failid = "failed:%s:%s" % (host, check['check'])
         notifyid = "notified:%s:%s" % (host, check['check'])
         if status != previous_status:
-            #state changed incr flap counter
+            # state changed incr flap counter
             self.rc.incr(flapid)
             self.rc.expire(flapid, self.flap_window)
         if status is False:
             self.rc.incr(failid)
             if self.flapping(flapid):
-                #we failed again but it looks like we're flapping
-                self.logger.info('%s is flapping - skipping notification.' % flapid)
-                self.logger.info('%s:%s failure # %d'% (host, check['check'], int(self.rc.get(failid) or 0)))
+                # we failed again but it looks like we're flapping
+                self.logger.info(
+                    '%s is flapping - skipping notification.' % flapid)
+                self.logger.info('%s:%s failure # %d' % (
+                    host, check['check'], int(self.rc.get(failid) or 0)))
             else:
                 fail_count = int(self.rc.get(failid) or 0)
                 notify_count = int(self.rc.get(notifyid) or 0)
                 if fail_count >= self.alert_threshold:
                     if notify_count > 0:
                         self.logger.info('%s:%s failure # %d - previously notified' % (host, check['check'], fail_count))
-                        #We've already emited an alert
+                        # We've already emited an alert
                     else:
-                        #emit an alert
-                        self.logger.info('%s:%s failure # %d'% (host, check['check'], fail_count))
+                        # emit an alert
+                        self.logger.info('%s:%s failure # %d' %
+                                         (host, check['check'], fail_count))
                         self.emit_alert(check)
                         self.rc.setex(notifyid, 1, self.alert_expire)
                 else:
-                    #we failed but haven't reached the alert threshold yet
-                    self.logger.info('%s:%s failure # %d' % (host, check['check'], fail_count))
+                    # we failed but haven't reached the alert threshold yet
+                    self.logger.info('%s:%s failure # %d' %
+                                     (host, check['check'], fail_count))
         else:
             if previous_status is False:
-                self.logger.info('%s:%s alert cleared' % (host, check['check']))
-                #check is responding again, clear alert
+                self.logger.info(
+                    '%s:%s alert cleared' % (host, check['check']))
+                # check is responding again, clear alert
                 self.rc.delete(notifyid)
 
     def flapping(self, flapid):

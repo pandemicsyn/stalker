@@ -15,6 +15,7 @@ class SignInForm(Form):
     password = PasswordField(validators=[Required()])
     remember_me = BooleanField()
 
+
 def _get_users_theme(username):
     q = mongo.db.users.find_one({'username': username},
                                 {'theme': 1, '_id': False})
@@ -97,7 +98,7 @@ def register():
 def users(username):
     if not username:
         if request.method == 'DELETE':
-            abort(400) #don't allow deletes with out user being set explicitly
+            abort(400)  # don't allow deletes with out user
         if session.get('username', False):
             username = session.get('username')
         else:
@@ -124,14 +125,14 @@ def users(username):
                 abort(400)
         if 'email' in request.json:
             fields['email'] = request.json['email']
-        q = mongo.db.users.update({'username': username}, {"$set": fields}, upsert=False)
+        q = mongo.db.users.update({'username': username},
+                                  {"$set": fields}, upsert=False)
         if q:
             if session and 'theme' in fields:
                 session['theme'] = fields['theme']
             return jsonify({'success': True})
         else:
             return jsonify({'success': False})
-    
 
 
 @app.route("/hosts/", defaults={'host': None})
@@ -143,7 +144,9 @@ def hosts(host):
         if q:
             q = {'hosts': q}
     else:
-        q = mongo.db.hosts.find_one({'$or': [{'hostname': host}, {'ip': host}]}, fields={'_id': False})
+        q = mongo.db.hosts.find_one({'$or': [{'hostname': host},
+                                             {'ip': host}]},
+                                    fields={'_id': False})
     if q:
         return jsonify(q)
     else:
@@ -157,7 +160,8 @@ def checks(host):
     if not host:
         q = [x for x in mongo.db.checks.find()]
     else:
-        q = [x for x in mongo.db.checks.find({'$or': [{'hostname': host}, {'ip': host}]})]
+        q = [x for x in mongo.db.checks.find({'$or': [{'hostname': host},
+                                                      {'ip': host}]})]
     if q:
         for check in q:
             check['_id'] = str(check['_id'])
@@ -192,8 +196,8 @@ def checks_by_id(checkid):
 @login_required
 def check_next(checkid):
     if request.method == 'GET':
-        check = mongo.db.checks.find_one(
-            {'_id': ObjectId(checkid)}, {'next': 1})
+        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
+                                         {'next': 1})
         if check:
             check['_id'] = str(check['_id'])
             return jsonify({'check': check})
@@ -204,11 +208,11 @@ def check_next(checkid):
             abort(400)
         try:
             if request.json['next'] == 'now':
-                q = mongo.db.checks.update(
-                    {'_id': ObjectId(checkid)}, {'$set': {'next': time() - 1}})
+                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
+                                           {'$set': {'next': time() - 1}})
             else:
-                q = mongo.db.checks.update({'_id': ObjectId(
-                    checkid)}, {'$set': {'next': int(request.json['next'])}})
+                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
+                                           {'$set': {'next': int(request.json['next'])}})
             if q['n'] != 0:
                 return jsonify({'success': True})
             else:
@@ -221,8 +225,8 @@ def check_next(checkid):
 @login_required
 def check_suspended(checkid):
     if request.method == 'GET':
-        check = mongo.db.checks.find_one(
-            {'_id': ObjectId(checkid)}, {'suspended': 1})
+        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
+                                         {'suspended': 1})
         if check:
             check['_id'] = str(check['_id'])
             return jsonify({'check': check})
@@ -233,11 +237,11 @@ def check_suspended(checkid):
             abort(400)
         try:
             if request.json['suspended'] is True:
-                q = mongo.db.checks.update(
-                    {'_id': ObjectId(checkid)}, {'$set': {'suspended': True}})
+                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
+                    {                       '$set': {'suspended': True}})
             elif request.json['suspended'] is False:
-                q = mongo.db.checks.update({'_id': ObjectId(
-                    checkid)}, {'$set': {'suspended': False}})
+                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
+                                           {'$set': {'suspended': False}})
             else:
                 abort(400)
             if q['n'] != 0:
@@ -252,29 +256,29 @@ def check_suspended(checkid):
 @login_required
 def check_state(state):
     if state == 'alerting':
-        q = [x for x in mongo.db.checks.find(
-            {'status': False}, fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'status': False},
+                                             fields={'_id': False})]
         if q:
             return jsonify({'alerting': q})
         else:
             return jsonify({'alerting': []})
     elif state == 'pending':
-        q = [x for x in mongo.db.checks.find(
-            {'pending': True}, fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'pending': True},
+                                             fields={'_id': False})]
         if q:
             return jsonify({'pending': q})
         else:
             return jsonify({'pending': []})
     elif state == 'in_maintenance':
-        q = [x for x in mongo.db.checks.find(
-            {'in_maintenance': True}, fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'in_maintenance': True},
+                                             fields={'_id': False})]
         if q:
             return jsonify({'in_maintenance': q})
         else:
             return jsonify({'in_maintenance': []})
     elif state == 'suspended':
-        q = [x for x in mongo.db.checks.find(
-            {'suspended': True}, fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'suspended': True},
+                                             fields={'_id': False})]
         if q:
             return jsonify({'suspended': q})
         else:
@@ -339,10 +343,12 @@ def view_single_host(hostname):
     else:
         return render_template('host.html', target=hostname)
 
+
 @app.route('/view/user/<username>')
 @login_required
 def view_user(username):
     return render_template('user.html')
+
 
 @app.route('/signout')
 def signout():
