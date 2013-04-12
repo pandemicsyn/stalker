@@ -10,7 +10,7 @@ class StalkerManager(object):
 
     def __init__(self, conf):
         self.conf = conf
-        log_file = conf.get('log_path', '/var/log/stalker-manager.log')
+        log_file = conf.get('log_path', '/var/log/stalker/stalker-manager.log')
         self.logger = get_logger('stalker_manager', log_path=log_file)
         redis_host = conf.get('redis_host', '127.0.0.1')
         redis_port = int(conf.get('redis_port', '6379'))

@@ -13,7 +13,7 @@ class StalkerRunner(object):
 
     def __init__(self, conf):
         self.conf = conf
-        log_file = conf.get('log_path', '/var/log/stalker-runner.log')
+        log_file = conf.get('log_path', '/var/log/stalker/stalker-runner.log')
         self.logger = get_logger('stalker_runner', log_path=log_file)
         self.pool = eventlet.GreenPool()
         self.check_key = conf.get('check_key', 'canhazstatus')

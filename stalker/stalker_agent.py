@@ -13,7 +13,7 @@ class StalkerAgent(object):
     def __init__(self, fullconf):
         conf = fullconf['main']
         self.fullconf = fullconf
-        log_file = conf.get('log_path', '/var/log/stalker-agent.log')
+        log_file = conf.get('log_path', '/var/log/stalker/stalker-agent.log')
         self.logger = get_logger('stalker_agent', log_path=log_file)
         self.request_logger = FileLikeLogger(self.logger)
         self.listen_addr = conf.get('listen_addr', '')
