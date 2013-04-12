@@ -1,14 +1,38 @@
 #!/usr/bin/env python
+import os
 import sys
+import string
+import random
 import getpass
 import optparse
-import stalkerweb
+
+def _gen_key(key_len=16, extended=False):
+    base = string.ascii_letters + string.digits
+    extended_base = base + '!@#$%^&*()'
+    if extended:
+        return ''.join(random.choice(extended_base) for x in range(key_len))
+    else:
+        return ''.join(random.choice(base) for x in range(key_len))
+
+
+def auto_gen_config():
+    defaults = {'MONGO_DBNAME': 'stalkerweb',
+                'REGISTER_KEY': _gen_key(),
+                'API_KEY': _gen_key(),
+                'SECRET_KEY': _gen_key(32, True)}
+    print "# begin generated stalkerweb.cfg"
+    for k, v in defaults.items():
+        print "%s = '%s'" % (k, v)
+    print "# end generated stalkerweb.cfg"
+
 
 def main():
     usage = '''%prog --host 0.0.0.0 -p 5000 --debug -a <username>'''
     args = optparse.OptionParser(usage)
     args.add_option('--host', default='0.0.0.0',
                     help='default = all ips')
+    args.add_option('--conf', default='/etc/stalker/stalkerweb.cfg',
+                    help='Path to stalkerweb config. default = /etc/stalker/stalkerweb.cfg')
     args.add_option('--port', '-p', default='5000',
                     help='default = 5000', type="int")
     args.add_option('--debug', '-d', action="store_true",
@@ -16,7 +40,27 @@ def main():
     args.add_option('--add-user', '-a', help="Add a user")
     args.add_option('--init-db', action="store_true",
                     help="Initializes a stalker db. Only run at setup.")
+    args.add_option('--gen-config', action="store_true",
+                    help="Generate/print a config for use with stalkerweb")
     options, arguments = args.parse_args()
+
+    if options.gen_config:
+        auto_gen_config()
+        sys.exit(0)
+
+    if 'STALKERWEB_CONFIG' not in os.environ:
+        if os.path.exists(options.conf):
+            os.environ['STALKERWEB_CONFIG'] = options.conf
+        else:
+            print "Unable to find config file %s nor STALKERWEB_CONFIG env var" % options.conf
+            sys.exit(1)
+    else:
+        if not os.path.exists(options.conf):
+            print "STALKERWEB_COPNFIG env var set but config does not exist"
+            sys.exit(1)
+
+    import stalkerweb #waited to import because we need to load the conf first
+
 
     if options.init_db:
         with stalkerweb.app.test_request_context():
