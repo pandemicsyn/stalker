@@ -2,8 +2,9 @@ import urllib2
 from time import time
 
 import eventlet
+from bson import ObjectId
 from bson.json_util import loads
-from stalker_utils import Daemon, get_logger
+from stalker_utils import Daemon, get_logger, TRUE_VALUES
 eventlet.monkey_patch()
 import redis
 from pymongo import MongoClient
@@ -32,9 +33,21 @@ class StalkerRunner(object):
         self.db = self.c[db_name]
         self.checks = self.db['checks']
         self.flap_window = int(conf.get('flap_window', '1200'))
-        self.flap_threshold = int(conf.get('flap_threshold', '3'))
-        self.alert_threshold = int(conf.get('alert_threshold', '2'))
+        self.flap_threshold = int(conf.get('flap_threshold', '5'))
+        self.alert_threshold = int(conf.get('alert_threshold', '3'))
         self.alert_expire = int(conf.get('alert_expire', '1800'))
+        self.notifications = {}
+        self.mailgun_enabled = conf.get('mailgun_enable', 'n').lower() in TRUE_VALUES
+        if self.mailgun_enabled:
+            from stalker_notifications import Mailgun
+            mailgun = Mailgun(conf=conf, logger=self.logger, rc=self.rc)
+            self.notifications['mailgun'] = mailgun
+        self.pagerduty_enabled = conf.get('pagerduty_enable', 'n').lower() in TRUE_VALUES
+        if self.pagerduty_enabled:
+            from stalker_notifications import PagerDuty
+            pagerduty = PagerDuty(conf=conf, logger=self.logger,
+                                  redis_client=self.rc)
+            self.notifications['pagerduty'] = pagerduty
 
     def _get_checks(self, max_count=100, max_time=2, timeout=2):
             """Gather some checks off the Redis queue and batch them up"""
@@ -66,90 +79,112 @@ class StalkerRunner(object):
             raise Exception("No content")
         return loads(content)
 
-    def emit_alert(self, check):
-        self.logger.info('alert %s' % check)
-
-    def status_update(self, host, check, status, previous_status):
-        flapid = "flap:%s:%s" % (host, check)
-        failid = "failed:%s:%s" % (host, check['check'])
-        notifyid = "notified:%s:%s" % (host, check['check'])
-        if status != previous_status:
-            # state changed incr flap counter
-            self.rc.incr(flapid)
-            self.rc.expire(flapid, self.flap_window)
-        if status is False:
-            self.rc.incr(failid)
-            if self.flapping(flapid):
-                # we failed again but it looks like we're flapping
-                self.logger.info(
-                    '%s is flapping - skipping notification.' % flapid)
-                self.logger.info('%s:%s failure # %d' % (
-                    host, check['check'], int(self.rc.get(failid) or 0)))
-            else:
-                fail_count = int(self.rc.get(failid) or 0)
-                notify_count = int(self.rc.get(notifyid) or 0)
-                if fail_count >= self.alert_threshold:
-                    if notify_count > 0:
-                        self.logger.info('%s:%s failure # %d - previously notified' % (host, check['check'], fail_count))
-                        # We've already emited an alert
-                    else:
-                        # emit an alert
-                        self.logger.info('%s:%s failure # %d' %
-                                         (host, check['check'], fail_count))
-                        self.emit_alert(check)
-                        self.rc.setex(notifyid, 1, self.alert_expire)
-                else:
-                    # we failed but haven't reached the alert threshold yet
-                    self.logger.info('%s:%s failure # %d' %
-                                     (host, check['check'], fail_count))
-        else:
-            if previous_status is False:
-                self.logger.info(
-                    '%s:%s alert cleared' % (host, check['check']))
-                # check is responding again, clear alert
-                self.rc.delete(notifyid)
+    def _flap_incr(self, flapid):
+        self.rc.incr(flapid)
+        self.rc.expire(flapid, self.flap_window)
 
     def flapping(self, flapid):
         flap_count = int(self.rc.get(flapid) or 0)
+        self.logger.debug('%s %d' % (flapid, flap_count))
         if flap_count >= self.flap_threshold:
             return True
         else:
             return False
 
+    def emit_fail(self, check):
+        self.logger.info('alert %s' % check)
+        for plugin in self.notifications.itervalues():
+            try:
+                plugin.fail(check)
+            except Exception:
+                self.logger.exception('Error emitting failure: ')
+
+    def emit_clear(self, check):
+        self.logger.info('cleared %s' % check)
+        for plugin in self.notifications.itervalues():
+            try:
+                plugin.clear(check)
+            except Exception:
+                self.logger.exception('Error emitting failure: ')
+
+    def state_change(self, check, previous_status):
+        if check['status'] != previous_status:
+            self.logger.info('%s:%s state changed.' % (check['hostname'],
+                                                       check['check']))
+            state_changed = True
+        else:
+            self.logger.debug('%s:%s state unchanged.' % (check['hostname'],
+                                                          check['check']))
+            state_changed = False
+
+        if check['status'] is True and not check['flapping']:
+            if state_changed:
+                self.emit_clear(check)
+        elif check['status'] is True and check['flapping']:
+            self.logger.info('%s is flapping - skipping notification.' %
+                             (check['hostname'], check['check']))
+        elif check['status'] is False and not check['flapping']:
+            if check['fail_count'] >= self.alert_threshold:
+                self.logger.info('%s:%s failure # %d' % (check['hostname'],
+                                                         check['check'],
+                                                         check['fail_count']))
+                self.emit_fail(check)
+            else:
+                self.logger.info('%s:%s failure # %d' % (check['hostname'],
+                                                         check['check'],
+                                                         check['fail_count']))
+        elif check['status'] is False and check['flapping']:
+            self.logger.info('%s:%s is flapping - skipping notification.' %
+                             (check['hostname'], check['check']))
+        else:
+            self.logger.info("Oops, odd state. Shouldn't have got here.")
+        return state_changed
+
     def run_check(self, payload):
         check = loads(payload[1])
-        host = check['hostname']
         check_name = check['check']
+        flapid = "flap:%s:%s" % (check['hostname'], check['check'])
         ip = check['ip']
-        flapid = 'flap:%s:%s' % (host, check_name)
-        current_status = check['status']
+        previous_status = check['status']
         result = None
         try:
-            result = self._fetch_url(
-                'http://%s:5050/%s' % (ip, check_name))
+            result = self._fetch_url('http://%s:5050/%s' % (ip, check_name))
         except Exception as err:
             result = {check_name: {'status': 2, 'out': '', 'err': str(err)}}
-        now = time()
+
         if result[check_name]['status'] == 0:
-            self.rc.set("failed:%s:%s" % (host, check_name), "0")
-            self.status_update(host, check, True, current_status)
-            u = self.checks.update({'_id': check['_id']},
-                                   {"$set": {'pending': False, 'status': True,
-                                             'flapping': self.flapping(flapid),
-                                             'last': now,
-                                             'next': now + check['interval'],
-                                             'out': result[check_name]['out']
-                                             }})
+            if previous_status is False:
+                self._flap_incr(flapid)
+            query = {'_id': ObjectId(check['_id'])}
+            update = {"$set": {'pending': False, 'status': True,
+                               'flapping': self.flapping(flapid),
+                               'next': time() + check['interval'],
+                               'last': time(),
+                               'out': result[check_name]['out'] +
+                               result[check_name]['err'],
+                               'fail_count': 0}}
         else:
-            self.status_update(host, check, False, current_status)
-            u = self.checks.update({'_id': check['_id']},
-                                   {"$set": {'pending': False, 'status': False,
-                                             'flapping': self.flapping(flapid),
-                                             'last': now,
-                                             'next': now + check['interval'],
-                                             'out': result[check_name]['out'] + result[check_name]['err']
-                                             }})
-        return u
+            if previous_status is True:
+                self._flap_incr(flapid)
+            query = {'_id': ObjectId(check['_id'])}
+            update = {"$set": {'pending': False, 'status': False,
+                               'flapping': self.flapping(flapid),
+                               'next': time() + check['interval'],
+                               'last': time(),
+                               'out': result[check_name]['out'] +
+                               result[check_name]['err']},
+                      "$inc": {'fail_count': 1}}
+        try:
+            response = self.checks.find_and_modify(query=query, update=update,
+                                                   new=True)
+        except Exception:
+            response = None
+            self.logger.exception('Error on check find_and_modify:')
+        if response:
+            self.state_change(response, previous_status)
+            return True
+        else:
+            return False
 
     def start(self):
         while 1:
@@ -157,13 +192,9 @@ class StalkerRunner(object):
             checks = self._get_checks()
             if checks:
                 self.logger.info("Got %d checks" % len(checks))
-                check_result = [x for x in self.pool.imap(
-                    self.run_check, checks)]
-                for check in check_result:
-                    if check['updatedExisting'] and check['err'] is None:
-                        self.logger.debug(check)
-                    else:
-                        self.logger.error(check)
+                check_result = [x for x in self.pool.imap(self.run_check,
+                                                          checks)]
+                self.logger.debug(check_result)
             else:
                 self.logger.debug('No checks, sleeping')
             eventlet.sleep()

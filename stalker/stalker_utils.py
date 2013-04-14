@@ -8,6 +8,16 @@ from signal import SIGTERM
 from ConfigParser import ConfigParser, RawConfigParser
 from logging.handlers import TimedRotatingFileHandler
 
+# Used when reading config values
+TRUE_VALUES = set(('true', '1', 'yes', 'on', 't', 'y'))
+
+def get_basic_auth(user="", key=""):
+    """Get basic auth creds
+
+    :returns: the basic auth string
+    """
+    s = user + ":" + key
+    return s.encode("base64").rstrip()
 
 def get_logger(name, log_path='/var/log/stalker.log', level=logging.INFO,
                count=7):
