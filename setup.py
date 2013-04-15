@@ -15,7 +15,7 @@ data_files = [('share/doc/stalker',
 
 setup(
     name = name,
-    version = "0.0.6",
+    version = "0.0.7",
     author = "Florian Hines",
     author_email = "syn@ronin.io",
     description = "Simple Monitoring System",
