@@ -35,19 +35,25 @@ class StalkerRunner(object):
         self.flap_window = int(conf.get('flap_window', '1200'))
         self.flap_threshold = int(conf.get('flap_threshold', '5'))
         self.alert_threshold = int(conf.get('alert_threshold', '3'))
-        self.alert_expire = int(conf.get('alert_expire', '1800'))
         self.notifications = {}
-        self.mailgun_enabled = conf.get('mailgun_enable', 'n').lower() in TRUE_VALUES
-        if self.mailgun_enabled:
+        self._load_notification_plugins(conf)
+
+
+    def _load_notification_plugins(self, conf):
+        if conf.get('mailgun_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import Mailgun
-            mailgun = Mailgun(conf=conf, logger=self.logger, rc=self.rc)
+            mailgun = Mailgun(conf=conf, logger=self.logger, redis_client=self.rc)
             self.notifications['mailgun'] = mailgun
-        self.pagerduty_enabled = conf.get('pagerduty_enable', 'n').lower() in TRUE_VALUES
-        if self.pagerduty_enabled:
+        if conf.get('pagerduty_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import PagerDuty
             pagerduty = PagerDuty(conf=conf, logger=self.logger,
                                   redis_client=self.rc)
             self.notifications['pagerduty'] = pagerduty
+        if conf.get('smtplib_enable', 'n').lower() in TRUE_VALUES:
+            from stalker_notifications import EmailNotify
+            email_notify = EmailNotify(conf=conf, logger=self.logger,
+                                       redis_client=self.rc)
+            self.notifications['email_notify'] = email_notify
 
     def _get_checks(self, max_count=100, max_time=2, timeout=2):
             """Gather some checks off the Redis queue and batch them up"""

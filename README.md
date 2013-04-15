@@ -6,7 +6,7 @@ Components:
  - stalker_agent - Runs on the clients, registers the client with the master, executes local checks.
  - stalkerweb - Client registration end point and Web UI
  - stalker_manager - Just parses the master db and puts work on the queue for the runners.
- - stalker_runner - Reads work queue, hits clients stalker_agent to run checks, schedules checks next run
+ - stalker_runner - Reads work queue, hits clients stalker_agent to run checks, schedules checks next run, takes care of notifications.
  - MongoDB (its what I had installed...could be anything else). Just stores check states and host config info.
  - Redis - Could do without now, but handy if we run multiple stalker_runners down the road
 
@@ -54,7 +54,15 @@ stalker-manager is charge of scheduling checks with runners. At the moment it re
 
 ## stalker_runner
 
-It pulls checks out of a Redis list. Then makes the http call for the check to the agent. It parses the result and updates the database accordingly (i.e. marking a check as failed, setting the next run time, etc). It also does some vary basic flap detection.
+It pulls checks out of a Redis list. Then makes the http call for the check to the agent. It parses the result and updates the database accordingly (i.e. marking a check as failed, setting the next run time, etc). It also does basic flap detection, and handles notifications using any enabled notification plugins.
+
+## Notification Plugins
+
+ - Pagerduty Incident API (Support's triggering and resolving)
+ - Mailgun API
+ - Email via smtplib
+ - Shell Command Execution*
+ - HTTP POST*
 
 ## TODO's
 
