@@ -15,7 +15,7 @@ data_files = [('share/doc/stalker',
                 'etc/stalker-manager.conf',
                 'etc/init.d/stalker-manager',
                 'etc/stalker-runner.conf',
-                '/etc/init.d/stalker-runner',
+                'etc/init.d/stalker-runner',
                 'etc/stalkerweb.cfg',
                 ])]
 
