@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
+import os
+from sys import argv
 from setuptools import setup, find_packages
+from stalker import __version__ as version
 
 install_requires = []
 
@@ -10,16 +13,25 @@ data_files = [('share/doc/stalker',
                ['README.md',
                 'etc/stalker-agent.conf',
                 'etc/stalker-manager.conf',
+                'etc/init.d/stalker-manager',
                 'etc/stalker-runner.conf',
-               ])]
+                '/etc/init.d/stalker-runner',
+                'etc/stalkerweb.cfg',
+                ])]
+
+if not os.getenv('VIRTUAL_ENV', False) and argv[1] == 'install':
+    data_files.append(('/etc/init.d', ['etc/init.d/stalker-agent']))
+else:
+    data_files.append(('share/doc',
+                       ['etc/init.d/stalker-agent']))
 
 setup(
-    name = name,
-    version = "0.0.7",
-    author = "Florian Hines",
-    author_email = "syn@ronin.io",
-    description = "Simple Monitoring System",
-    url = "http://github.com/pandemicsyn/stalker",
+    name=name,
+    version=version,
+    author="Florian Hines",
+    author_email="syn@ronin.io",
+    description="Simple Monitoring System",
+    url="http://github.com/pandemicsyn/stalker",
     packages=find_packages(),
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -27,10 +39,10 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2.6',
         'Environment :: No Input/Output (Daemon)',
-        ],
+    ],
     install_requires=install_requires,
     include_package_data=True,
     zip_safe=False,
     scripts=['bin/stalker-agent', 'bin/stalker-manager', 'bin/stalker-runner',
-             'bin/stalker-web', 'bin/stalker-client',],
-    data_files = data_files)
+             'bin/stalker-web', 'bin/stalker-client', ],
+    data_files=data_files)
