@@ -7,8 +7,6 @@ from stalkerweb.auth import is_valid_login, login_required, change_pass, remove_
 from stalkerweb import app, mongo
 from flask.ext.wtf import Form, Required, TextField, PasswordField, BooleanField
 
-REGISTER_KEY = 'itsamario'
-
 
 class SignInForm(Form):
     username = TextField(validators=[Required()])
@@ -58,7 +56,7 @@ def _valid_registration(content):
 
 @app.route("/register", methods=['POST', 'PUT'])
 def register():
-    if request.headers.get('X-REGISTER-KEY') != REGISTER_KEY:
+    if request.headers.get('X-REGISTER-KEY') != app.config['REGISTER_KEY']:
         abort(412)
     if not request.json:
         abort(400)
