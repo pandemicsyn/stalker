@@ -127,7 +127,7 @@ class StalkerRunner(object):
             if state_changed:
                 self.emit_clear(check)
         elif check['status'] is True and check['flapping']:
-            self.logger.info('%s is flapping - skipping notification.' %
+            self.logger.info('%s:%s is flapping - skipping notification.' %
                              (check['hostname'], check['check']))
         elif check['status'] is False and not check['flapping']:
             if check['fail_count'] >= self.alert_threshold:

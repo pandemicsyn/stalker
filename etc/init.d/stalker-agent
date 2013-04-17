@@ -11,6 +11,8 @@
 # Description:          stalker-agent for stalker monitoring system
 ### END INIT INFO
 
+USER=nobody
+GROUP=adm #so checks can still access logs
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 CONF=/etc/stalker/stalker-agent.conf
 NAME=stalker-agent
