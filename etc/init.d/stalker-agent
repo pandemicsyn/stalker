@@ -31,7 +31,7 @@ case "$1" in
         mkdir -p /var/log/stalker
         chown nobody:nogroup $RUNDIR /var/log/stalker
         chmod 755 $RUNDIR
-        if start-stop-daemon --start --pidfile $PIDFILE --chuid nobody:nogroup --exec $DAEMON -- $DAEMON_ARGS_START
+        if start-stop-daemon --start --pidfile $PIDFILE --chuid $USER:$GROUP --exec $DAEMON -- $DAEMON_ARGS_START
         then
                 echo "$NAME."
         else
