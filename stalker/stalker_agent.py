@@ -43,9 +43,14 @@ class StalkerAgent(object):
                 self.scripts[i] = self._script_config(i)
 
     def _script_ok(self, script_name):
+
         tgt = os.path.join(self.script_dir, script_name)
-        if os.path.splitext(tgt)[1] == 'cfg':
+        if os.path.splitext(tgt)[1] == '.cfg':
             return False  # this is a config file
+        else:
+            if '.' in script_name or '$' in script_name:
+                self.logger.error("name contains . or $: %s" % script_name)
+                return False
         if os.path.isfile(tgt):
             if os.access(tgt, os.X_OK):
                 return True
