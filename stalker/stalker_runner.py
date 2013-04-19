@@ -1,10 +1,13 @@
+import os
+import errno
+import signal
 import urllib2
 from time import time
 
 import eventlet
 from bson import ObjectId
 from bson.json_util import loads
-from stalker_utils import Daemon, get_logger, TRUE_VALUES
+from stalker_utils import Daemon, get_logger, get_syslogger, TRUE_VALUES
 eventlet.monkey_patch()
 import redis
 from pymongo import MongoClient
@@ -14,8 +17,13 @@ class StalkerRunner(object):
 
     def __init__(self, conf):
         self.conf = conf
-        log_file = conf.get('log_path', '/var/log/stalker/stalker-runner.log')
-        self.logger = get_logger('stalker_runner', log_path=log_file)
+        self.name = 'stalker-runner-%d' % os.getpid()
+        log_type = conf.get('log_type', 'syslog')
+        log_file = conf.get('log_file', '/var/log/stalker/stalker-runner.log')
+        if log_type == 'syslog':
+            self.logger = get_syslogger(conf, self.name)
+        else:
+            self.logger = get_logger(self.name, log_path=log_file)
         self.pool = eventlet.GreenPool()
         self.check_key = conf.get('check_key', 'canhazstatus')
         redis_host = conf.get('redis_host', '127.0.0.1')
@@ -38,11 +46,11 @@ class StalkerRunner(object):
         self.notifications = {}
         self._load_notification_plugins(conf)
 
-
     def _load_notification_plugins(self, conf):
         if conf.get('mailgun_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import Mailgun
-            mailgun = Mailgun(conf=conf, logger=self.logger, redis_client=self.rc)
+            mailgun = Mailgun(
+                conf=conf, logger=self.logger, redis_client=self.rc)
             self.notifications['mailgun'] = mailgun
         if conf.get('pagerduty_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import PagerDuty
@@ -55,7 +63,7 @@ class StalkerRunner(object):
                                        redis_client=self.rc)
             self.notifications['email_notify'] = email_notify
 
-    def _get_checks(self, max_count=100, max_time=2, timeout=2):
+    def _get_checks(self, max_count=100, max_time=1, timeout=1):
             """Gather some checks off the Redis queue and batch them up"""
             checks = []
             expire_time = time() + max_time
@@ -209,6 +217,63 @@ class StalkerRunner(object):
 class SRDaemon(Daemon):
 
     def run(self, conf):
-        sr = StalkerRunner(conf)
-        while 1:
-            sr.start()
+
+        name = 'stalker-agent'
+        log_type = conf.get('log_type', 'syslog')
+        log_file = conf.get('log_path', '/var/log/stalker/stalker-runner.log')
+        if log_type == 'syslog':
+            logger = get_syslogger(conf, name)
+        else:
+            logger = get_logger(name, log_path=log_file)
+
+        def spawn_worker():
+            sr = StalkerRunner(conf)
+            while 1:
+                try:
+                    sr.start()
+                except Exception as err:
+                    logger.info(err)
+
+        worker_count = int(conf.get('workers', '1'))
+
+        def kill_children(*args):
+            """Kills the entire process group."""
+            logger.error('SIGTERM received')
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            running[0] = False
+            os.killpg(0, signal.SIGTERM)
+
+        def hup(*args):
+            """Shuts down the server, but allows running requests to complete"""
+            logger.error('SIGHUP received')
+            signal.signal(signal.SIGHUP, signal.SIG_IGN)
+            running[0] = False
+
+        running = [True]
+        signal.signal(signal.SIGTERM, kill_children)
+        signal.signal(signal.SIGHUP, hup)
+        children = []
+        while running[0]:
+            while len(children) < worker_count:
+                pid = os.fork()
+                if pid == 0:
+                    signal.signal(signal.SIGHUP, signal.SIG_DFL)
+                    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                    spawn_worker()
+                    logger.info('Child %d exiting normally' % os.getpid())
+                    return
+                else:
+                    logger.info('Started child %s' % pid)
+                    children.append(pid)
+                    logger.info('children: %s' % children)
+            try:
+                pid, status = os.wait()
+                if os.WIFEXITED(status) or os.WIFSIGNALED(status):
+                    logger.error('Removing dead child %s' % pid)
+                    if pid in children:
+                        children.remove(pid)
+            except OSError, err:
+                if err.errno not in (errno.EINTR, errno.ECHILD):
+                    raise
+            except KeyboardInterrupt:
+                break

@@ -1,12 +1,25 @@
 import os
 import pwd
 import sys
+import errno
 import atexit
 import logging
 from time import sleep
 from signal import SIGTERM
 from ConfigParser import ConfigParser, RawConfigParser
-from logging.handlers import TimedRotatingFileHandler
+
+import eventlet
+from eventlet.green import socket, threading
+# logging doesn't import patched as cleanly as one would like
+from logging.handlers import SysLogHandler, TimedRotatingFileHandler
+import logging
+logging.thread = eventlet.green.thread
+logging.threading = eventlet.green.threading
+logging._lock = logging.threading.RLock()
+# setup notice level logging
+NOTICE = 25
+logging._levelNames[NOTICE] = 'NOTICE'
+SysLogHandler.priority_map['NOTICE'] = 'notice'
 
 # Used when reading config values
 TRUE_VALUES = set(('true', '1', 'yes', 'on', 't', 'y'))
@@ -20,14 +33,97 @@ def get_basic_auth(user="", key=""):
     return s.encode("base64").rstrip()
 
 def get_logger(name, log_path='/var/log/stalker.log', level=logging.INFO,
-               count=7):
+               count=7, fmt=None):
     logger = logging.getLogger(name)
     handler = TimedRotatingFileHandler(log_path, when='midnight',
                                        backupCount=count)
-    formatter = logging.Formatter('%(name)s: %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s: %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+    return logger
+
+def get_syslogger(conf, name=None, log_to_console=False, log_route=None,
+               fmt=None):
+    """
+    Stolen from: Openstack Swift
+    Get the current system logger using config settings.
+
+    **Log config and defaults**::
+
+        log_facility = LOG_LOCAL0
+        log_level = INFO
+        log_name = swift
+        log_udp_host = (disabled)
+        log_udp_port = logging.handlers.SYSLOG_UDP_PORT
+        log_address = /dev/log
+
+    :param conf: Configuration dict to read settings from
+    :param name: Name of the logger
+    :param log_to_console: Add handler which writes to console on stderr
+    :param log_route: Route for the logging, not emitted to the log, just used
+                      to separate logging configurations
+    :param fmt: Override log format
+    """
+    if not conf:
+        conf = {}
+    if name is None:
+        name = conf.get('log_name', 'stalker')
+    if not log_route:
+        log_route = name
+    logger = logging.getLogger(log_route)
+    logger.propagate = False
+    # all new handlers will get the same formatter
+    if not fmt:
+        formatter = logging.Formatter('%(name)s: %(message)s')
+    else:
+        formatter = logging.Formatter(fmt)
+
+    # get_logger will only ever add one SysLog Handler to a logger
+    if not hasattr(get_logger, 'handler4logger'):
+        get_logger.handler4logger = {}
+    if logger in get_logger.handler4logger:
+        logger.removeHandler(get_logger.handler4logger[logger])
+
+    # facility for this logger will be set by last call wins
+    facility = getattr(SysLogHandler, conf.get('log_facility', 'LOG_LOCAL0'),
+                       SysLogHandler.LOG_LOCAL0)
+    udp_host = conf.get('log_udp_host')
+    if udp_host:
+        udp_port = int(conf.get('log_udp_port',
+                                logging.handlers.SYSLOG_UDP_PORT))
+        handler = SysLogHandler(address=(udp_host, udp_port),
+                                facility=facility)
+    else:
+        log_address = conf.get('log_address', '/dev/log')
+        try:
+            handler = SysLogHandler(address=log_address, facility=facility)
+        except socket.error, e:
+            # Either /dev/log isn't a UNIX socket or it does not exist at all
+            if e.errno not in [errno.ENOTSOCK, errno.ENOENT]:
+                raise e
+            handler = SysLogHandler(facility=facility)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    get_logger.handler4logger[logger] = handler
+
+    # setup console logging
+    if log_to_console or hasattr(get_logger, 'console_handler4logger'):
+        # remove pre-existing console handler for this logger
+        if not hasattr(get_logger, 'console_handler4logger'):
+            get_logger.console_handler4logger = {}
+        if logger in get_logger.console_handler4logger:
+            logger.removeHandler(get_logger.console_handler4logger[logger])
+
+        console_handler = logging.StreamHandler(sys.__stderr__)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+        get_logger.console_handler4logger[logger] = console_handler
+
+    # set the level for the logger
+    logger.setLevel(
+        getattr(logging, conf.get('log_level', 'INFO').upper(), logging.INFO))
+
     return logger
 
 
