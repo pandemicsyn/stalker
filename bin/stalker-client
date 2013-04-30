@@ -73,33 +73,52 @@ def main():
         print "No stalkerweb_api_key found in env nor in %s" % conf_file
         sys.exit(1)
 
-    if sys.argv == 1:
+    if len(sys.argv) == 1:
         options.alerting = True
 
     if options.alerting:
+        failed_hosts = set()
         content, parsed = _request(config, 'alerting')
         if options.verbose:
             _pjson(content)
         else:
+            print "=== Alerting ==="
+            sorted_alerts = {}
             for i in parsed['alerting']:
-                clean_out = " ".join([x for x in i['out'].split('\n')])
-                print '%s on %s is alerting because "%s"' % (i['check'], i['hostname'], clean_out)
+                if i['hostname'] in sorted_alerts:
+                    sorted_alerts[i['hostname']].append(i)
+                else:
+                    sorted_alerts[i['hostname']] = []
+                    sorted_alerts[i['hostname']].append(i)
+            for host in sorted_alerts:
+                for i in sorted_alerts[host]:
+                    clean_out = " ".join([x for x in i['out'].split('\n')])
+                    if clean_out == "<urlopen error [Errno 113] EHOSTUNREACH>":
+                        failed_hosts.add(i['hostname'])
+                    else:
+                        print '%s on %s is alerting because "%s"' % (i['check'],
+                                                                     i['hostname'],
+                                                                     clean_out)
+            print "=== Alerting - unreachable ==="
+            print " ".join([x for x in failed_hosts])
     if options.pending:
         content, parsed = _request(config, 'pending')
         if options.verbose:
             _pjson(content)
         else:
+            print "=== Pending ==="
             for i in parsed['pending']:
                 clean_out = " ".join([x for x in i['out'].split('\n')])
-                print '%s on %s is pending.' % (i['check'], i['hostname'])
+                print '%s on %s' % (i['check'], i['hostname'])
     if options.suspended:
         content, parsed = _request(config, 'suspended')
         if options.verbose:
             _pjson(content)
         else:
+            print "=== Suspended ==="
             for i in parsed['suspended']:
                 clean_out = " ".join([x for x in i['out'].split('\n')])
-                print '%s on %s is suspended last output: "%s"' % (i['check'], i['hostname'], clean_out)
+                print '%s on %s is suspended. last output: "%s"' % (i['check'], i['hostname'], clean_out)
 
 if __name__ == '__main__':
     main()
