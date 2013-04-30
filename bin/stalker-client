@@ -1,14 +1,105 @@
 #!/usr/bin/env python
 import json
 import urllib2
+import os
+import sys
+import optparse
 
-url = 'http://localhost:5000/checks/state/alerting'
-headers = {'X-API-KEY': 'something'}
 
-req = urllib2.Request(url, headers=headers)
-res = urllib2.urlopen(req)
-content = res.read()
-parsed = json.loads(content)
-for i in parsed['alerting']:
-    clean_out = " ".join([x for x in i['out'].split('\n')])
-    print '%s on %s is alerting because "%s"' % (i['check'], i['hostname'], clean_out)
+def _pjson(content):
+    try:
+        import pygments.lexers
+        lexer = pygments.lexers.get_lexer_by_name(
+            'javascript')  # just use this incase its an old version
+        from pygments.formatters import TerminalFormatter
+        from pygments import highlight
+        print(highlight(content, lexer, TerminalFormatter()))
+    except ImportError:
+        # load and then dump to print
+        output = json.loads(content)
+        print json.dumps(output, sort_keys=False, indent=4)
+
+
+def _request(config, rtype):
+    endpoints = {'alerting': '/checks/state/alerting',
+                 'pending': '/checks/state/pending',
+                 'suspended': '/checks/state/suspended'}
+    target = config['url'] + endpoints[rtype]
+    headers = {'X-API-KEY': config['key']}
+    req = urllib2.Request(target, headers=headers)
+    res = urllib2.urlopen(req)
+    content = res.read()
+    parsed = json.loads(content)
+    return content, parsed
+
+
+def main():
+    """stalkerweb cli"""
+    usage = '''%prog -a -p -s -v'''
+    args = optparse.OptionParser(usage)
+    args.add_option('--alerting', '-a', action="store_true",
+                    help="Get alerting")
+    args.add_option('--pending', '-p', action="store_true",
+                    help="Get pending")
+    args.add_option('--suspended', '-s', action="store_true",
+                    help="Get suspended")
+    args.add_option('--verbose', '-v', action="store_true",
+                    help="Print out json (fancy if pygments is present")
+    options, arguments = args.parse_args()
+
+    conf_file = os.environ.get('stalker-client-conf',
+                               '/etc/stalker/stalker-client.conf')
+
+    config = {'url': None, 'key': None}
+
+    if os.path.exists(conf_file):
+        with open(conf_file) as f:
+            for i in f.readline():
+                if i.startswith('url'):
+                    config['url'] = i.split('=')[1].strip().rstrip('/')
+                elif i.startswith('api_key'):
+                    config['key'] = i.split('=')[1].strip()
+
+    if os.environ.get('stalkerweb_url'):
+        config['url'] = os.environ.get('stalkerweb_url').rstrip('/')
+
+    if os.environ.get('stalkerweb_api_key'):
+        config['key'] = os.environ.get('stalkerweb_api_key')
+
+    if not config['url']:
+        print "No stalkerweb_url found in env nor in %s" % conf_file
+        sys.exit(1)
+    if not config['key']:
+        print "No stalkerweb_api_key found in env nor in %s" % conf_file
+        sys.exit(1)
+
+    if sys.argv == 1:
+        options.alerting = True
+
+    if options.alerting:
+        content, parsed = _request(config, 'alerting')
+        if options.verbose:
+            _pjson(content)
+        else:
+            for i in parsed['alerting']:
+                clean_out = " ".join([x for x in i['out'].split('\n')])
+                print '%s on %s is alerting because "%s"' % (i['check'], i['hostname'], clean_out)
+    if options.pending:
+        content, parsed = _request(config, 'pending')
+        if options.verbose:
+            _pjson(content)
+        else:
+            for i in parsed['pending']:
+                clean_out = " ".join([x for x in i['out'].split('\n')])
+                print '%s on %s is pending.' % (i['check'], i['hostname'])
+    if options.suspended:
+        content, parsed = _request(config, 'suspended')
+        if options.verbose:
+            _pjson(content)
+        else:
+            for i in parsed['suspended']:
+                clean_out = " ".join([x for x in i['out'].split('\n')])
+                print '%s on %s is suspended last output: "%s"' % (i['check'], i['hostname'], clean_out)
+
+if __name__ == '__main__':
+    main()
