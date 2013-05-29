@@ -120,4 +120,5 @@ def main():
                 clean_out = " ".join([x for x in i['out'].split('\n')])
                 print '%s on %s is suspended. last output: "%s"' % (i['check'], i['hostname'], clean_out)
 
-if __name__ =
+if __name__ == '__main__':
+    main()
