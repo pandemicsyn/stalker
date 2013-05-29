@@ -93,7 +93,7 @@ def main():
             for host in sorted_alerts:
                 for i in sorted_alerts[host]:
                     clean_out = " ".join([x for x in i['out'].split('\n')])
-                    if clean_out == "<urlopen error [Errno 113] EHOSTUNREACH>":
+                    if clean_out.startswith('<urlopen error [Errno'): 
                         failed_hosts.add(i['hostname'])
                     else:
                         print '%s on %s is alerting because "%s"' % (i['check'],
@@ -120,5 +120,4 @@ def main():
                 clean_out = " ".join([x for x in i['out'].split('\n')])
                 print '%s on %s is suspended. last output: "%s"' % (i['check'], i['hostname'], clean_out)
 
-if __name__ == '__main__':
-    main()
+if __name__ =

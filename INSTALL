@@ -1,0 +1,27 @@
+# Ubuntu install (via stdeb built packages)
+
+## stalker-manager|runner|web
+
+Mongo setup:
+
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv 7F0CEB10
+    sudo su -c 'echo "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen" >>  /etc/apt/sources.list.d/10gen.list'
+    sudo apt-get update
+    sudo apt-get install mongodb-10gen
+    sudo su -c 'echo "bind_ip = 127.0.0.1" >> /etc/mongodb.conf'
+    sudo service mongodb restart
+
+Stalkerweb and deps:
+
+    dpkg -i python-stalker
+    sudo apt-get install redis-server gcc python-dev
+    sudo pip install flask flask-wtf flask-bcrypt flask-pymongo redis
+    sudo stalker-web --init-db
+    sudo stalker-web -a <yourusername>
+
+## stalker-agent
+
+    dpkg -i python-stalker
+    apt-get install python-eventlet nagios-plugins-extra
+    update-rc.d -f stalker-agent defaults
+    update-rc.d -f stalker-agent enable
