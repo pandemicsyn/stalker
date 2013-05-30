@@ -43,6 +43,7 @@ class StalkerRunner(object):
         self.flap_window = int(conf.get('flap_window', '1200'))
         self.flap_threshold = int(conf.get('flap_threshold', '5'))
         self.alert_threshold = int(conf.get('alert_threshold', '3'))
+        self.urlopen_timeout = int(conf.get('urlopen_timeout', '15'))
         self.notifications = {}
         self._load_notification_plugins(conf)
 
@@ -87,7 +88,7 @@ class StalkerRunner(object):
 
     def _fetch_url(self, url):
         req = urllib2.Request(url, headers={'X-CHECK-KEY': self.check_key})
-        response = urllib2.urlopen(req)
+        response = urllib2.urlopen(req, timeout=self.urlopen_timeout)
         content = response.read()
         if not content:
             raise Exception("No content")

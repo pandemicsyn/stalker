@@ -1,8 +1,8 @@
 import os
 import json
 import urllib2
-import subprocess
-from eventlet import wsgi
+from eventlet import wsgi, Timeout
+from eventlet.green import subprocess
 from socket import gethostname
 import eventlet
 from stalker_utils import Daemon, FileLikeLogger, readconf, get_logger
@@ -114,7 +114,7 @@ class StalkerAgent(object):
         """Process a single a check call"""
         script = env['PATH_INFO'].strip('/')
         p = subprocess.Popen("%s %s" % (self.scripts[script]['cmd'],
-                                        self.scripts[script]['args']),
+                                    self.scripts[script]['args']),
                              shell=True, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         stouterr = p.communicate()
@@ -131,7 +131,12 @@ class StalkerAgent(object):
             return ['Unauthorized\r\n']
         if env['PATH_INFO'].startswith('/check_'):
             if env['PATH_INFO'].strip('/') in self.scripts:
-                return self.single(env, start_response)
+                try:
+                    return self.single(env, start_response)
+                except Exception as err:
+                    start_response('500 Internal Server Error',
+                                   [('Content-Type', 'text/plain')])
+                    return ['Error running check: %s' % err]
             else:
                 start_response('404 Not Found',
                                [('Content-Type', 'text/plain')])
