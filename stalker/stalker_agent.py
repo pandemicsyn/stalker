@@ -1,7 +1,7 @@
 import os
 import json
 import urllib2
-from eventlet import wsgi, Timeout
+from eventlet import wsgi
 from eventlet.green import subprocess
 from socket import gethostname
 import eventlet

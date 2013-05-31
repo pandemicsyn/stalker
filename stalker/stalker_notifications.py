@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
 import eventlet
-from eventlet.green import urllib, urllib2, subprocess
-
-from stalker.stalker_utils import get_basic_auth, TRUE_VALUES
+from eventlet.green import urllib, urllib2
+from stalker_utils import get_basic_auth, TRUE_VALUES
 
 smtplib = eventlet.import_patched('smtplib')
 

@@ -1,10 +1,10 @@
 import redis
+from random import choice
 from os.path import exists
 from time import time, sleep
 from pymongo import MongoClient
 from bson.json_util import dumps
 from stalker_utils import Daemon, get_logger
-from random import choice
 
 
 class StalkerManager(object):
@@ -44,18 +44,6 @@ class StalkerManager(object):
                 count += 1
             self.logger.info('Reshuffled %d checks on startup.' % count)
 
-    def _insert_check(self, check_name):
-        self.checks.insert({'check': check_name, 'last': 0, 'next': time() - 1,
-                            'interval': 300, 'pending': False, 'status': False,
-                            'in_maintenance': False})
-
-    def test_insert(self):
-        """insert some test data"""
-        self.checks.drop()
-        for i in xrange(1000):
-            self._insert_check('somehost/check%d' % i)
-        self.scan_checks()
-
     def pause_if_asked(self):
         """Check if pause file exists and sleep until its removed if it does"""
         if exists(self.pause_file):
@@ -65,9 +53,11 @@ class StalkerManager(object):
             self.logger.info('Pause removed')
 
     def queue_len(self, q='worker1'):
+        """Return # of items in queue"""
         return self.rc.llen(q)
 
     def queue_check(self, i):
+        """Queue up a check for the stalker_runners"""
         # if we had multiple stalker_runners we could roundrobin q's
         self.rc.rpush('worker1', dumps(i))
 
