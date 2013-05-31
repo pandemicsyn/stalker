@@ -29,7 +29,8 @@ class StalkerAgent(object):
         self.default_interval = int(conf.get('default_interval', '300'))
         self.scripts = {}
         self.hostname = conf.get('hostname', gethostname())
-        self.roles = [x.strip() for x in conf.get('roles', 'server').split(',')]
+        self.roles = [x.strip() for x in conf.get('roles',
+                                                  'server').split(',')]
         if not os.path.exists(self.script_dir):
             raise Exception("No script dir: %s" % self.script_dir)
         self._build_check_list()
@@ -114,7 +115,7 @@ class StalkerAgent(object):
         """Process a single a check call"""
         script = env['PATH_INFO'].strip('/')
         p = subprocess.Popen("%s %s" % (self.scripts[script]['cmd'],
-                                    self.scripts[script]['args']),
+                                        self.scripts[script]['args']),
                              shell=True, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
         stouterr = p.communicate()

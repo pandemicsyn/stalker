@@ -28,11 +28,12 @@ class StalkerManager(object):
         self.checks = self.db['checks']
         self.scan_interval = int(conf.get('scan_interval', '5'))
         self.pause_file = conf.get('pause_file', '/tmp/.sm-pause')
+        self.shuffle_on_start = True
 
     def startup_shuffle(self):
-        #reshuffle all checks that need to be done right now and schedule
-        #them for a future time. i.e. if the stalker-manager was offline
-        #for an extended period of time.
+        # reshuffle all checks that need to be done right now and schedule
+        # them for a future time. i.e. if the stalker-manager was offline
+        # for an extended period of time.
         if not self.shuffle_on_start:
             return
         else:
@@ -41,7 +42,7 @@ class StalkerManager(object):
                 r = self.checks.update({'_id': i['_id']},
                                        {"$set": {"next": time() + choice(xrange(600))}})
                 count += 1
-            self.logger.notice('Reshuffled %d checks on startup.' % count)
+            self.logger.info('Reshuffled %d checks on startup.' % count)
 
     def _insert_check(self, check_name):
         self.checks.insert({'check': check_name, 'last': 0, 'next': time() - 1,

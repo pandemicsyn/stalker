@@ -24,6 +24,7 @@ SysLogHandler.priority_map['NOTICE'] = 'notice'
 # Used when reading config values
 TRUE_VALUES = set(('true', '1', 'yes', 'on', 't', 'y'))
 
+
 def get_basic_auth(user="", key=""):
     """Get basic auth creds
 
@@ -31,6 +32,7 @@ def get_basic_auth(user="", key=""):
     """
     s = user + ":" + key
     return s.encode("base64").rstrip()
+
 
 def get_logger(name, log_path='/var/log/stalker.log', level=logging.INFO,
                count=7, fmt=None):
@@ -43,8 +45,9 @@ def get_logger(name, log_path='/var/log/stalker.log', level=logging.INFO,
     logger.setLevel(logging.INFO)
     return logger
 
+
 def get_syslogger(conf, name=None, log_to_console=False, log_route=None,
-               fmt=None):
+                  fmt=None):
     """
     Stolen from: Openstack Swift
     Get the current system logger using config settings.
