@@ -4,6 +4,7 @@ import sys
 import errno
 import atexit
 import logging
+from sys import maxint
 from time import sleep
 from signal import SIGTERM
 from ConfigParser import ConfigParser, RawConfigParser
@@ -23,6 +24,87 @@ SysLogHandler.priority_map['NOTICE'] = 'notice'
 
 # Used when reading config values
 TRUE_VALUES = set(('true', '1', 'yes', 'on', 't', 'y'))
+
+
+class StatsdEvent(object):
+
+    def __init__(self, conf, logger, name_prepend=''):
+        self.logger = logger
+        self.statsd_host = conf.get('statsd_host', '127.0.0.1')
+        self.statsd_port = int(conf.get('statsd_port', '8125'))
+        self.statsd_addr = (self.statsd_host, self.statsd_port)
+        self.statsd_sample_rate = float(conf.get('statsd_sample_rate', '.5'))
+        self.combined_events = conf.get('combined_events',
+                                        'no').lower() in TRUE_VALUES
+        self.combine_key = conf.get('combine_key', '\n')
+        if self.combine_key == "\\n":
+            self.combine_key = '\n'
+        self.metric_name_prepend = conf.get(
+            'metric_name_prepend', name_prepend)
+        self.actual_rate = 0.0
+        self.count = 0
+        self.monitored = 0
+        self.enabled = conf.get('statsd_enable', 'n').lower() in TRUE_VALUES
+
+    def _send_sampled_event(self):
+        """"
+        Check to see if statsd is even enabled. If it is track the sample rate
+        and checks to see if this is a request that should be sent to statsd. If
+        statsd support is disabled just return False and perform no ops.
+
+        :returns: True if the event should be sent to statsd
+        """
+        if not self.enabled:
+            return False
+        send_sample = False
+        self.count += 1
+        if self.actual_rate < self.statsd_sample_rate:
+            self.monitored += 1
+            send_sample = True
+        self.actual_rate = float(self.monitored) / float(self.count)
+        if self.count >= maxint or self.monitored >= maxint:
+            self.count = 0
+            self.monitored = 0
+        return send_sample
+
+    def _send_events(self, payloads, combined_events=False):
+        """Fire the actual udp events to statsd"""
+        try:
+            udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            if not combined_events:
+                for payload in payloads:
+                    print payload
+                    udp_socket.sendto(payload, self.statsd_addr)
+            else:
+                # send multiple events per packet
+                payload = self.combine_key.join(payloads)
+                udp_socket.sendto(payload, self.statsd_addr)
+        except Exception:
+            self.logger.exception("Error sending statsd event")
+
+    def batch_gauge(self, metric_dict, prefix='stalker.'):
+        """Given a dict of metrics send all to statsd.
+           Uses alternate key prefix! Doesn't use a sample rate."""
+        if not self.enabled:
+            return
+        payload = []
+        for k in metric_dict:
+            payload.append('%s%s:%d|g' % (prefix, k, metric_dict[k]))
+        self._send_events(payload)
+
+    def counter(self, metric_name, value=1):
+        """Send a counter event"""
+        if self._send_sampled_event():
+            counter = "%s%s:%d|c|@%s" % (self.metric_name_prepend, metric_name,
+                                         value, self.statsd_sample_rate)
+            self._send_events([counter])
+
+    def timer(self, metric_name, duration):
+        """Send a timer event"""
+        if self._send_sampled_event():
+            timer = "%s%s:%d|ms|@%s" % (self.metric_name_prepend, metric_name,
+                                        duration, self.statsd_sample_rate)
+            self._send_events(timer)
 
 
 def get_basic_auth(user="", key=""):
@@ -140,6 +222,7 @@ class FileLikeLogger(object):
 
 
 class Daemon:
+
     """
     A generic daemon class.
 

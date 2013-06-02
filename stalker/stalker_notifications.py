@@ -13,6 +13,7 @@ except ImportError:
 
 
 class PagerDuty(object):
+
     """Pagerduty Notifications"""
 
     def __init__(self, conf, logger, redis_client):
@@ -22,7 +23,8 @@ class PagerDuty(object):
         self.service_key = conf.get('pagerduty_service_key')
         if not self.service_key:
             raise Exception('No pagerduty service key in conf')
-        self.url = conf.get('pagerduty_url', 'https://events.pagerduty.com/generic/2010-04-15/create_event.json')
+        self.url = conf.get(
+            'pagerduty_url', 'https://events.pagerduty.com/generic/2010-04-15/create_event.json')
         self.host_group = conf.get(
             'pagerduty_host_group_alerts', 'n').lower() in TRUE_VALUES
 
@@ -123,6 +125,7 @@ class PagerDuty(object):
 
 
 class Mailgun(object):
+
     """Mailgun Notifications"""
 
     def __init__(self, conf, logger, redis_client):
@@ -201,6 +204,7 @@ class Mailgun(object):
 
 
 class EmailNotify(object):
+
     """Email (smtplib) based Notifications"""
 
     def __init__(self, conf, logger, redis_client):

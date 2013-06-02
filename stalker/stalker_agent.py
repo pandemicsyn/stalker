@@ -5,7 +5,7 @@ from eventlet import wsgi
 from eventlet.green import subprocess
 from socket import gethostname
 import eventlet
-from stalker_utils import Daemon, FileLikeLogger, readconf, get_logger
+from stalker.stalker_utils import Daemon, FileLikeLogger, readconf, get_logger
 
 
 class StalkerAgent(object):

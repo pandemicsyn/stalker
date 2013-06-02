@@ -5,6 +5,7 @@ import string
 import random
 import getpass
 import optparse
+from subprocess import Popen
 
 
 def _gen_key(key_len=16, extended=False):
@@ -43,6 +44,11 @@ def main():
                     help="Initializes a stalker db. Only run at setup.")
     args.add_option('--gen-config', action="store_true",
                     help="Generate/print a config for use with stalkerweb")
+    args.add_option('-g', '--gunicorn', action="store_true",
+                    help="DEVELOPT: launch instance using gunicorn")
+    args.add_option('-w', '--gunicorn-workers', default="4", type="int",
+                    help="DEVELOPT: number of workers to use if using gunicorn. Default: 4")
+
     options, arguments = args.parse_args()
 
     if options.gen_config:
@@ -58,7 +64,7 @@ def main():
             sys.exit(1)
     else:
         if not os.path.exists(options.conf):
-            print "STALKERWEB_COPNFIG env var set but config does not exist"
+            print "STALKERWEB_CONFIG env var set but config does not exist"
             sys.exit(1)
 
     import stalkerweb  # waited to import because we need to load conf first
@@ -94,8 +100,15 @@ def main():
                 print "Error. Does the user already exist ?"
         sys.exit()
     else:
-        stalkerweb.app.run(host=options.host, port=options.port,
-                           debug=options.debug)
+        if not options.gunicorn:
+            stalkerweb.app.run(host=options.host, port=options.port,
+                               debug=options.debug)
+        else:
+            cmd = "gunicorn -k eventlet -w %d stalkerweb:app -b %s:%d" % \
+                (options.gunicorn_workers, options.host, options.port)
+            p = Popen(cmd, shell=True)
+            sts = os.waitpid(p.pid, 0)[1]
+            print sts
 
 if __name__ == '__main__':
     main()

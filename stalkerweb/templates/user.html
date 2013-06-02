@@ -41,7 +41,9 @@
         self.email = ko.observable('');
         self.changes = ko.observableArray();
         self.activeTheme = ko.observableArray();
-        self.availableThemes = ko.observableArray(['cosmo', 'cerulean', 'cyborg', 'slate', 'spacelab', 'united']);
+        {% autoescape false %}
+        self.availableThemes = ko.observableArray({{ config['THEMES'] }});
+        {% endautoescape %}
       }
     
     </script>

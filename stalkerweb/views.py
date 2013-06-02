@@ -1,17 +1,52 @@
+import json
+import eventlet
+eventlet.monkey_patch()
+from eventlet.green import urllib2
 from flask import request, abort, jsonify, render_template, session, redirect
 import pymongo
 from bson import ObjectId
 from time import time
 from random import choice
 from stalkerweb.auth import is_valid_login, login_required, change_pass, remove_user
-from stalkerweb import app, mongo
+from stalkerweb import app, mongo, rc
 from flask.ext.wtf import Form, Required, TextField, PasswordField, BooleanField
+
+VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
 
 class SignInForm(Form):
     username = TextField(validators=[Required()])
     password = PasswordField(validators=[Required()])
     remember_me = BooleanField()
+
+
+def _get_remote_checks(clusterid, state):
+    endpoints = {'alerting': '/checks/state/alerting',
+                 'pending': '/checks/state/pending',
+                 'suspended': '/checks/state/suspended',
+                 'in_maintenance': '/checks/state/in_maintenance'}
+    target = app.config['GLOBAL_CLUSTERS'][clusterid]['host'] + \
+        endpoints[state]
+    headers = {'X-API-KEY': app.config['GLOBAL_CLUSTERS'][clusterid]['key']}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
+        return json.loads(res.read())
+    except Exception as err:
+        print err
+        return None
+
+
+def _get_remote_stats(clusterid):
+    target = app.config['GLOBAL_CLUSTERS'][clusterid]['host'] + '/stats'
+    headers = {'X-API-KEY': app.config['GLOBAL_CLUSTERS'][clusterid]['key']}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
+        return json.loads(res.read())
+    except Exception as err:
+        print err
+        return None
 
 
 def _get_users_theme(username):
@@ -236,7 +271,7 @@ def check_suspended(checkid):
         try:
             if request.json['suspended'] is True:
                 q = mongo.db.checks.update({'_id': ObjectId(checkid)},
-                    {                       '$set': {'suspended': True}})
+                                           {'$set': {'suspended': True}})
             elif request.json['suspended'] is False:
                 q = mongo.db.checks.update({'_id': ObjectId(checkid)},
                                            {'$set': {'suspended': False}})
@@ -285,6 +320,54 @@ def check_state(state):
         abort(400)
 
 
+@app.route('/global/clusters')
+@login_required
+def global_clusters():
+    return jsonify({'clusters': app.config['GLOBAL_CLUSTERS'].keys()})
+
+
+@app.route('/global/<clusterid>/checks/state/<state>')
+@login_required
+def global_check_state(clusterid, state):
+    if clusterid not in app.config['GLOBAL_CLUSTERS']:
+        abort(400)
+    if state in VALID_STATES:
+        q = _get_remote_checks(clusterid, state)
+        if q:
+            return jsonify({clusterid: q})
+        else:
+            abort(500)
+    else:
+        abort(400)
+
+
+@app.route('/stats', defaults={'clusterid': None})
+@app.route('/stats/<clusterid>')
+@login_required
+def stalker_stats(clusterid):
+    if not clusterid:
+        metrics = {}
+        mkeys = ['checks', 'failing', 'flapping', 'pending',
+                 'qsize', 'suspended']
+        try:
+            values = rc.mget(mkeys)
+            for k in mkeys:
+                metrics[k] = int(values[mkeys.index(k)])
+            return jsonify({'stats': metrics})
+        except Exception as err:
+            print err
+            abort(500)
+    else:
+        if clusterid not in app.config['GLOBAL_CLUSTERS']:
+            abort(400)
+        else:
+            q = _get_remote_stats(clusterid)
+            if q:
+                return jsonify({clusterid: q})
+            else:
+                abort(500)
+
+
 @app.route('/findhost')
 @login_required
 def findhost():
@@ -305,7 +388,7 @@ def findhost():
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html')
+    return render_template('states.html', state='alerting')
 
 
 @app.route('/view/states', defaults={'state': None})
@@ -313,7 +396,10 @@ def index():
 @login_required
 def view_states(state):
     if state:
-        return render_template('states.html', state=state)
+        if state in VALID_STATES:
+            return render_template('states.html', state=state)
+        else:
+            abort(404)
     else:
         return render_template('states.html', state='alerting')
 
@@ -346,6 +432,19 @@ def view_single_host(hostname):
 @login_required
 def view_user(username):
     return render_template('user.html')
+
+
+@app.route('/global/view/states', defaults={'state': None})
+@app.route('/global/view/states/<state>/')
+@login_required
+def view_global(state):
+    if state:
+        if state in VALID_STATES:
+            return render_template('clusterstates.html', state=state)
+        else:
+            abort(404)
+    else:
+        return render_template('clusterstates.html', state='alerting')
 
 
 @app.route('/signout')

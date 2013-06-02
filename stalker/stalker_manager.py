@@ -4,7 +4,7 @@ from os.path import exists
 from time import time, sleep
 from pymongo import MongoClient
 from bson.json_util import dumps
-from stalker_utils import Daemon, get_logger
+from stalker.stalker_utils import Daemon, StatsdEvent, get_logger
 
 
 class StalkerManager(object):
@@ -29,6 +29,21 @@ class StalkerManager(object):
         self.scan_interval = int(conf.get('scan_interval', '5'))
         self.pause_file = conf.get('pause_file', '/tmp/.sm-pause')
         self.shuffle_on_start = True
+        self.statsd = StatsdEvent(conf, self.logger, 'stalker_manager.')
+        self.metrics = {'checks': 0, 'pending': 0, 'suspended': 0,
+                        'failing': 0, 'flapping': 0, 'qsize': 0}
+
+    def _collect_metrics(self):
+        self.metrics['checks'] = self.checks.count()
+        self.metrics['pending'] = self.checks.find({'pending': True}).count()
+        self.metrics['suspended'] = self.checks.find({'suspended':
+                                                     True}).count()
+        self.metrics['failing'] = self.checks.find({'status': False}).count()
+        self.metrics['flapping'] = self.checks.find({'status': False}).count()
+        self.metrics['qsize'] = self.queue_len()
+        self.logger.info("stats: %s" % self.metrics)
+        self.rc.mset(self.metrics)
+        self.statsd.batch_gauge(self.metrics, prefix='stalker.')
 
     def startup_shuffle(self):
         # reshuffle all checks that need to be done right now and schedule
@@ -102,9 +117,13 @@ class StalkerManager(object):
                 self.logger.error(err)
         if qcount > 0:
             self.logger.info('Queued %d checks' % qcount)
+            self.statsd.counter('queue.put', qcount)
+        self._collect_metrics()
 
     def start(self):
         self.logger.info('starting up')
+        self.sanitize()
+        self.startup_shuffle()
         while 1:
             try:
                 self.scan_checks()
@@ -117,7 +136,5 @@ class SMDaemon(Daemon):
 
     def run(self, conf):
         sm = StalkerManager(conf)
-        sm.sanitize()
-        sm.startup_shuffle()
         while 1:
             sm.start()

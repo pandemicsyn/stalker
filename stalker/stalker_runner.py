@@ -8,7 +8,7 @@ import eventlet
 from bson import ObjectId
 from bson.json_util import loads
 from stalker.stalker_utils import Daemon, get_logger, get_syslogger, \
-    TRUE_VALUES
+    TRUE_VALUES, StatsdEvent
 eventlet.monkey_patch()
 import redis
 from pymongo import MongoClient
@@ -47,6 +47,7 @@ class StalkerRunner(object):
         self.urlopen_timeout = int(conf.get('urlopen_timeout', '15'))
         self.notifications = {}
         self._load_notification_plugins(conf)
+        self.statsd = StatsdEvent(conf, self.logger, 'stalker_runner.')
 
     def _load_notification_plugins(self, conf):
         """Load any enabled notification plugins"""
@@ -135,6 +136,7 @@ class StalkerRunner(object):
             self.logger.info('%s:%s state changed.' % (check['hostname'],
                                                        check['check']))
             state_changed = True
+            self.statsd.counter('.state_change')
         else:
             self.logger.debug('%s:%s state unchanged.' % (check['hostname'],
                                                           check['check']))
@@ -157,7 +159,6 @@ class StalkerRunner(object):
                 self.emit_fail(check)
         else:
             self.logger.info("Oops, odd state. Shouldn't have got here.")
-        return state_changed
 
     def run_check(self, payload):
         """Run a check and process its result"""
@@ -170,6 +171,7 @@ class StalkerRunner(object):
                                                              check_name))
         except Exception as err:
             result = {check_name: {'status': 2, 'out': '', 'err': str(err)}}
+            self.statsd.counter('checks.error')
         if result[check_name]['status'] == 0:
             if previous_status is False:
                 self._flap_incr(flapid)
@@ -181,6 +183,7 @@ class StalkerRunner(object):
                                'out': result[check_name]['out'] +
                                result[check_name]['err'],
                                'fail_count': 0}}
+            self.statsd.counter('checks.passed')
         else:
             if previous_status is True:
                 self._flap_incr(flapid)
@@ -192,6 +195,7 @@ class StalkerRunner(object):
                                'out': result[check_name]['out'] +
                                result[check_name]['err']},
                       "$inc": {'fail_count': 1}}
+            self.statsd.counter('checks.failed')
         try:
             response = self.checks.find_and_modify(query=query, update=update,
                                                    new=True)
@@ -209,7 +213,9 @@ class StalkerRunner(object):
             self.logger.debug("Checking queue for work")
             checks = self._get_checks()
             if checks:
-                self.logger.info("Got %d checks" % len(checks))
+                count = len(checks)
+                self.logger.info("Got %d checks" % count)
+                self.statsd.counter('queue.get', count)
                 check_result = [x for x in self.pool.imap(self.run_check,
                                                           checks)]
                 self.logger.debug(check_result)
