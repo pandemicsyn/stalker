@@ -59,7 +59,7 @@ def _get_remote_stats(clusterid):
     try:
         req = urllib2.Request(target, headers=headers)
         res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
-        return json.loads(res.read())
+        return json.loads(res.read())[clusterid]
     except Exception as err:
         print "Error while grabbing stats for %s: %s" % (clusterid, err)
         return None
