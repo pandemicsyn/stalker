@@ -17,17 +17,25 @@
         });
         self.checks = ko.observableArray([]);
         self.clusters = ko.observableArray([]);
+        self.stats = ko.observableArray([]);
       }
     </script>
 
 {% endblock %}
 {% block body %}
     <div class="container-fluid">
-
       <div class="row-fluid">
-        <div class="page-header"><h1><span>Global: </span><span data-bind="text: selectedState"></span></h1></div>
+        <div class="span12"><h1><span>Global: </span><span data-bind="text: selectedState"></span></h1></div>
       </div>
       
+      <div class="row-fluid" >
+        <table class="table table-bordered">
+          <tr data-bind="foreach: stats">
+            <td><span data-bind="text: cid"></span> has <span data-bind="text: failing"></span>/<span data-bind="text: checks"></span> failing ( <span data-bind="text: pending"></span> pending).</td>
+          </tr>
+        </table>
+      </div>
+
       <div class="row-fluid">
         <table class="table table-bordered table-striped table-hover">
           <thead>
@@ -57,8 +65,6 @@
         </table>
       </div>
 
-
-
       <div class="row-fluid">
         <span class="label label-important"> Failing Check</span>
         <span class="label label-info"> Pending Check </span>
@@ -72,12 +78,26 @@
       function getClusters() {
         $.ajax({type: "GET", url: "/global/clusters", dataType: "json",
                 success: function(data) {
-                  for (i in data.clusters) { self.clusters.push(data.clusters[i]); }
+                  for (i in data.clusters) {
+                    data.clusters[i]['id'] = i;
+                    self.clusters.push(data.clusters[i]);
+                  }
                   updateClusters();
                 }
         })
       }
-      function loadRemoteState(clusterid) {
+      function getStats() {
+        $.ajax({type: "GET", url: "/stats/all", dataType: "json",
+                success: function(data) {
+                  self.stats.removeAll()
+                  for (i in data.all) {
+                    data.all[i]['cid'] = i;
+                    self.stats.push(data.all[i]);
+                  }
+                }
+        })
+      }
+      function loadRemoteState(clusterid, host) {
         $.ajax({type: "GET",
                 url: "/global/" + clusterid + "/checks/state/" + self.selectedState(),
                 dataType: "json",
@@ -90,7 +110,7 @@
                         if (i == 'last' || i == 'next') {
                           check_fields[i] = new Date(raw[i]*1000).toUTCString();
                         } else if (i == 'hostname') {
-                          check_fields[i] = {"name": raw[i], "url": "/view/host/" + raw[i]}
+                          check_fields[i] = {"name": raw[i], "url": host + "/view/host/" + raw[i]}
                         } else {
                           check_fields[i] = raw[i]
                         }
@@ -129,8 +149,9 @@
         self.checks.removeAll()
         loadLocalState();
         for (i in self.clusters()) {
-          loadRemoteState(self.clusters()[i]);
+          loadRemoteState(self.clusters()[i]['id'], self.clusters()[i]['host']);
         }
+        getStats();
       }
       getClusters();
       var interval = setInterval(updateClusters, 60000);

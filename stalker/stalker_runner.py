@@ -214,7 +214,7 @@ class StalkerRunner(object):
             checks = self._get_checks()
             if checks:
                 count = len(checks)
-                self.logger.info("Got %d checks" % count)
+                self.logger.debug("Got %d checks" % count)
                 self.statsd.counter('queue.get', count)
                 check_result = [x for x in self.pool.imap(self.run_check,
                                                           checks)]
@@ -275,7 +275,6 @@ class SRDaemon(Daemon):
                 else:
                     logger.info('Started child %s' % pid)
                     children.append(pid)
-                    logger.info('children: %s' % children)
             try:
                 pid, status = os.wait()
                 if os.WIFEXITED(status) or os.WIFSIGNALED(status):

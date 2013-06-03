@@ -30,6 +30,7 @@ app.config['API_KEY'] = 'something'
 app.config['SECRET_KEY'] = 'SuperSecretDevKeyChangeMe!'
 app.config['THEMES'] = ['cosmo', 'cerulean', 'cyborg', 'slate', 'spacelab',
                         'united', 'flatly']
+app.config['CACHE_TTL'] = 10
 
 for i in app.config:
     print "%s = '%s'" % (i, app.config[i])

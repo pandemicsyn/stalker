@@ -10,8 +10,11 @@ from random import choice
 from stalkerweb.auth import is_valid_login, login_required, change_pass, remove_user
 from stalkerweb import app, mongo, rc
 from flask.ext.wtf import Form, Required, TextField, PasswordField, BooleanField
+from werkzeug.contrib.cache import RedisCache
 
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
+
+cache = RedisCache(default_timeout=app.config['CACHE_TTL'])
 
 
 class SignInForm(Form):
@@ -19,6 +22,19 @@ class SignInForm(Form):
     password = PasswordField(validators=[Required()])
     remember_me = BooleanField()
 
+
+def _get_local_metrics():
+    metrics = {}
+    mkeys = ['checks', 'failing', 'flapping', 'pending', 'qsize',
+             'suspended']
+    try:
+        values = rc.mget(mkeys)
+        for k in mkeys:
+            metrics[k] = int(values[mkeys.index(k)])
+        return metrics
+    except Exception as err:
+        print err
+        return None
 
 def _get_remote_checks(clusterid, state):
     endpoints = {'alerting': '/checks/state/alerting',
@@ -33,7 +49,7 @@ def _get_remote_checks(clusterid, state):
         res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
         return json.loads(res.read())
     except Exception as err:
-        print err
+        print "Error while grabbing checks for %s: %s" % (clusterid, err)
         return None
 
 
@@ -45,7 +61,7 @@ def _get_remote_stats(clusterid):
         res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
         return json.loads(res.read())
     except Exception as err:
-        print err
+        print "Error while grabbing stats for %s: %s" % (clusterid, err)
         return None
 
 
@@ -323,7 +339,7 @@ def check_state(state):
 @app.route('/global/clusters')
 @login_required
 def global_clusters():
-    return jsonify({'clusters': app.config['GLOBAL_CLUSTERS'].keys()})
+    return jsonify({'clusters': app.config['GLOBAL_CLUSTERS']})
 
 
 @app.route('/global/<clusterid>/checks/state/<state>')
@@ -332,8 +348,14 @@ def global_check_state(clusterid, state):
     if clusterid not in app.config['GLOBAL_CLUSTERS']:
         abort(400)
     if state in VALID_STATES:
-        q = _get_remote_checks(clusterid, state)
+        ckey = '%s:%s' % (clusterid, state)
+        cached = cache.get(ckey)
+        if cached:
+            return jsonify({clusterid: cached})
+        else:
+            q = _get_remote_checks(clusterid, state)
         if q:
+            cache.set(ckey, q)
             return jsonify({clusterid: q})
         else:
             abort(500)
@@ -345,27 +367,43 @@ def global_check_state(clusterid, state):
 @app.route('/stats/<clusterid>')
 @login_required
 def stalker_stats(clusterid):
+    default = {'qsize': None, 'failing': None, 'flapping': None,
+               'suspended': None, 'checks': None, 'pending': None}
     if not clusterid:
-        metrics = {}
-        mkeys = ['checks', 'failing', 'flapping', 'pending',
-                 'qsize', 'suspended']
-        try:
-            values = rc.mget(mkeys)
-            for k in mkeys:
-                metrics[k] = int(values[mkeys.index(k)])
-            return jsonify({'stats': metrics})
-        except Exception as err:
-            print err
-            abort(500)
-    else:
-        if clusterid not in app.config['GLOBAL_CLUSTERS']:
-            abort(400)
+        q = _get_local_metrics()
+        if q:
+            return jsonify({app.config['LOCAL_CID']: q})
         else:
-            q = _get_remote_stats(clusterid)
-            if q:
-                return jsonify({clusterid: q})
+            return jsonify({app.config['LOCAL_CID']: default})
+    else:
+        if clusterid in app.config['GLOBAL_CLUSTERS']:
+            ckey = '%s:%s' % (clusterid, 'stats')
+            cached = cache.get(ckey)
+            if cached:
+                return jsonify({clusterid: cached})
             else:
-                abort(500)
+                q = _get_remote_stats(clusterid)
+                if q:
+                    cache.set(ckey, q)
+                    return jsonify({clusterid: q})
+                else:
+                    return jsonify({clusterid: default})
+        elif clusterid == 'all':
+            q = {}
+            q[app.config['LOCAL_CID']] = _get_local_metrics()
+            for cid in app.config['GLOBAL_CLUSTERS'].keys():
+                ckey = '%s:%s' % (cid, 'stats')
+                cached = cache.get(ckey)
+                if cached:
+                    q[cid] = cached
+                else:
+                    q[cid] = _get_remote_stats(cid)
+                    if not q[cid]:
+                        q[cid] = default
+                    cache.set(ckey, q[cid])
+            return jsonify({'all': q})
+        else:
+            abort(404)
 
 
 @app.route('/findhost')
@@ -440,11 +478,11 @@ def view_user(username):
 def view_global(state):
     if state:
         if state in VALID_STATES:
-            return render_template('clusterstates.html', state=state)
+            return render_template('globalstates.html', state=state)
         else:
             abort(404)
     else:
-        return render_template('clusterstates.html', state='alerting')
+        return render_template('globalstates.html', state='alerting')
 
 
 @app.route('/signout')
