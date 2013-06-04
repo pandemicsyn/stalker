@@ -35,9 +35,8 @@ class PagerDuty(object):
         data = json.dumps({'service_key': self.service_key,
                            'incident_key': incident_key,
                            'event_type': 'resolve',
-                           'description': 'Check %s on %s is UP' % (check['check'],
-                                                                    check[
-                                                                        'hostname']),
+                           'description': '%s on %s is UP' % (check['check'],
+                                                              check['hostname']),
                            'details': check})
         try:
             req = urllib2.Request(self.url, data, headers)
@@ -65,9 +64,8 @@ class PagerDuty(object):
         data = json.dumps({'service_key': self.service_key,
                            'incident_key': incident_key,
                            'event_type': 'trigger',
-                           'description': 'Check %s on %s is DOWN' % (check['check'],
-                                                                      check[
-                                                                          'hostname']),
+                           'description': '%s on %s is DOWN' % (check['check'],
+                                                                check['hostname']),
                            'details': check})
         try:
             req = urllib2.Request(self.url, data, headers)
@@ -94,7 +92,7 @@ class PagerDuty(object):
         """Send clear"""
         check['_id'] = str(check['_id'])
         if self.host_group:
-            incident_key = '%s:%s' % (check['hostname'])
+            incident_key = check['hostname']
         else:
             incident_key = '%s:%s' % (check['hostname'], check['check'])
         if self.prefix:
@@ -111,7 +109,7 @@ class PagerDuty(object):
         """Send failure if not already notified"""
         check['_id'] = str(check['_id'])
         if self.host_group:
-            incident_key = '%s:%s' % (check['hostname'])
+            incident_key = check['hostname']
         else:
             incident_key = '%s:%s' % (check['hostname'], check['check'])
         if self.prefix:
