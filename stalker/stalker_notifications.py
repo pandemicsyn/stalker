@@ -27,6 +27,7 @@ class PagerDuty(object):
             'pagerduty_url', 'https://events.pagerduty.com/generic/2010-04-15/create_event.json')
         self.host_group = conf.get(
             'pagerduty_host_group_alerts', 'n').lower() in TRUE_VALUES
+        self.prefix = conf.get('pagerduty_incident_key_prefix')
 
     def _resolve(self, check, incident_key):
 
@@ -96,6 +97,8 @@ class PagerDuty(object):
             incident_key = '%s:%s' % (check['hostname'])
         else:
             incident_key = '%s:%s' % (check['hostname'], check['check'])
+        if self.prefix:
+            incident_key = self.prefix + incident_key
         track_id = 'pgduty:notified:%s' % incident_key
         notified = self.rc.get(track_id) or 0
         if notified != 0:
@@ -111,6 +114,8 @@ class PagerDuty(object):
             incident_key = '%s:%s' % (check['hostname'])
         else:
             incident_key = '%s:%s' % (check['hostname'], check['check'])
+        if self.prefix:
+            incident_key = self.prefix + incident_key
         track_id = 'pgduty:notified:%s' % incident_key
         notified = self.rc.get(track_id) or 0
         if notified == 0:
