@@ -76,7 +76,7 @@ class StalkerAgent(object):
             elif not os.path.isfile(cmd) or not os.access(cmd, os.X_OK):
                 self.logger.warning('%s cmd not executable or not file' % cmd)
             else:
-                self.logger.info('found % check')
+                self.logger.info('found % check') % cmd
                 self.scripts[check] = {'cmd': cmd, 'args': args,
                                        'interval': interval}
 
