@@ -68,7 +68,7 @@ class StalkerAgent(object):
                 self.logger.info('%s disabled. skipping.' % check)
                 continue
             cmd = self.fullconf[check].get('cmd')
-            args = self.fullconf[check].get('args')
+            args = self.fullconf[check].get('args') or ''
             interval = int(self.fullconf[check].get('interval',
                                                     self.default_interval))
             if not cmd:
