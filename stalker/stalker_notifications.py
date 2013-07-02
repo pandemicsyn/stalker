@@ -144,6 +144,7 @@ class Mailgun(object):
             raise Exception('No mailgun api key in conf.')
         self.url = 'https://api.mailgun.net/v2/%s/messages' % self.domain
         self.recipients = conf.get('mailgun_recipients')
+        self.from_addr = conf.get('mailgun_from_addr')
         if not self.recipients:
             raise Exception('No mailgun recipients in conf.')
         self.basic_auth_creds = get_basic_auth(self.api_user, self.api_key)
@@ -156,7 +157,7 @@ class Mailgun(object):
         else:
             status = 'DOWN'
         subject = "[stalker] %s on %s is %s" % (check_name, hostname, status)
-        data = {"from": "Stalker <stalker@swiftops.mailgun.org>",
+        data = {"from": "Stalker <%s>" % self.from_addr,
                 "to": self.recipients,
                 "subject": subject,
                 "text": "%s" % check}
