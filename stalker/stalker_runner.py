@@ -167,7 +167,7 @@ class StalkerRunner(object):
         flapid = "flap:%s:%s" % (check['hostname'], check['check'])
         previous_status = check['status']
         try:
-            result = self._exec_check('http://%s:5050/%s' % (check['ip'],
+            result = self._exec_check('https://%s:5050/%s' % (check['ip'],
                                                              check_name))
         except Exception as err:
             result = {check_name: {'status': 2, 'out': '', 'err': str(err)}}

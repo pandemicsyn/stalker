@@ -18,6 +18,8 @@ class StalkerAgent(object):
         self.request_logger = FileLikeLogger(self.logger)
         self.listen_addr = conf.get('listen_addr', '')
         self.listen_port = int(conf.get('listen_port', '5050'))
+        self.ssl_crt_path = conf.get('ssl_cert', '/etc/stalker/ssl.crt')
+        self.ssl_key_path = conf.get('ssl_key', '/etc/stalker/ssl.key')
         self.master_url = conf.get('master_url', 'http://localhost:5000')
         if self.master_url.startswith('https://'):
             self.master_scheme = 'https'
@@ -147,8 +149,16 @@ class StalkerAgent(object):
             return ['Not Found\r\n']
 
     def start(self):
-        wsgi.server(eventlet.listen((self.listen_addr, self.listen_port)),
-                    self.handle_request, log=self.request_logger)
+        try:
+            wsgi.server(eventlet.wrap_ssl(eventlet.listen((self.listen_addr,
+                                                           self.listen_port)),
+                                          certfile=self.ssl_crt_path,
+                                          keyfile=self.ssl_key_path,
+                                          server_side=True),
+                        self.handle_request, log=self.request_logger)
+        except Exception:
+            self.logger.exception('Oops')
+            raise
 
 
 class SADaemon(Daemon):
