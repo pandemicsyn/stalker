@@ -11,17 +11,52 @@ Mongo setup:
     sudo su -c 'echo "bind_ip = 127.0.0.1" >> /etc/mongodb.conf'
     sudo service mongodb restart
 
-Stalkerweb and deps:
+### stalker-web 
 
-    dpkg -i python-stalker
+Setup stalker-web (stdeb built) and dependencies (you may wanna build in virtualenv):
+
     sudo apt-get install redis-server gcc python-dev
+    git clone https://github.com/pandemicsyn/stalker.git
+    cd stalker
+    python setup.py --command-packages=stdeb.command bdist_deb
+    dpkg -i deb_dist/python-stalker_0.X.X-1_all.deb
+    #alternatively setup stalker via setup.py
+    #python setup.py install
     sudo pip install flask flask-wtf flask-bcrypt flask-pymongo redis
-    sudo stalker-web --init-db
-    sudo stalker-web -a <yourusername>
+    stalker-web --gen-config > etc/stalkerweb-simple.cfg
+    stalker-web --config=etc/stalkerweb-simple.cfg --init-db
+    stalker-web -a <yourusername>
+    #start service in debug mode
+    stalker-web --conf=etc/stalkerweb-simple.cfg -d
+    #alternatively start stalkerweb using gunicorn in daemon mode (w/ 2 workers)
+    #stalker-web --conf=etc/stalkerweb-simple.cfg -w 2 -G
 
-## stalker-agent
+### stalker-manager
+ 
+Assumes you built and installed packages above
+
+    #start stalker-manager in the foreground
+    mdkir /var/run/stalker; chown <youruser>:<youruser> /var/run/stalker
+    stalker-manager --pid=/var/run/stalker/manager.pid --conf=etc/stalker-manager.conf start
+
+### stalker-runner
+
+Assumes you built and installed packages above
+
+    #start stalker-runner in the foreground
+    mdkir /var/run/stalker; chown <youruser>:<youruser> /var/run/stalker
+    stalker-runner --pid=/var/run/stalker/runner.pid --conf=etc/stalker-runner.conf start
+
+### stalker-agent
 
     dpkg -i python-stalker
     apt-get install python-eventlet nagios-plugins-extra
     update-rc.d -f stalker-agent defaults
     update-rc.d -f stalker-agent enable
+    sudo service stalker-agent start
+
+###Logs
+
+Check /var/log/stalker/* for info, you can also start the daemons with -f (in the foreground)
+Make sure you deploy an SSL Cert and Key for stalker-agent.
+For stalker-web you'll probably want to front it by nginx w/ SSL.

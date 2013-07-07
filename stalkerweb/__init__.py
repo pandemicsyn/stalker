@@ -32,10 +32,14 @@ app.config['THEMES'] = ['cosmo', 'cerulean', 'cyborg', 'slate', 'spacelab',
                         'united', 'flatly']
 app.config['CACHE_TTL'] = 10
 
-for i in app.config:
-    print "%s = '%s'" % (i, app.config[i])
+
 app.config.from_envvar('STALKERWEB_CONFIG')
 mongo = PyMongo(app)
 rc = _init_redis(app)
+
+print "== APP CONFIG FOLLOWS =="
+for i in app.config:
+    print "%s = '%s'" % (i, app.config[i])
+print "== END APP CONFIG =="
 
 from stalkerweb import views

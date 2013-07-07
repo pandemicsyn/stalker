@@ -48,7 +48,8 @@ def main():
                     help="DEVELOPT: launch instance using gunicorn")
     args.add_option('-w', '--gunicorn-workers', default="4", type="int",
                     help="DEVELOPT: number of workers to use if using gunicorn. Default: 4")
-
+    args.add_option('-G', '--gunicorn-daemon', action="store_true",
+                    help="DEVELOPT: launch in gunicorn daemon mode")
     options, arguments = args.parse_args()
 
     if options.gen_config:
@@ -100,12 +101,16 @@ def main():
                 print "Error. Does the user already exist ?"
         sys.exit()
     else:
-        if not options.gunicorn:
+        if not options.gunicorn and not options.gunicorn_daemon:
             stalkerweb.app.run(host=options.host, port=options.port,
                                debug=options.debug)
         else:
-            cmd = "gunicorn -k eventlet -w %d stalkerweb:app -b %s:%d" % \
-                (options.gunicorn_workers, options.host, options.port)
+            args_postfix = ""
+            if options.gunicorn_daemon:
+                args_postfix = "--daemon"
+            cmd = "gunicorn -k eventlet -w %d stalkerweb:app -b %s:%d %s" % \
+                (options.gunicorn_workers, options.host, options.port,
+                 args_postfix)
             p = Popen(cmd, shell=True)
             sts = os.waitpid(p.pid, 0)[1]
             print sts
