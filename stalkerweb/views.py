@@ -7,9 +7,10 @@ import pymongo
 from bson import ObjectId
 from time import time
 from random import choice
-from stalkerweb.auth import is_valid_login, login_required, change_pass, remove_user
+from stalkerweb.auth import is_valid_login, login_required, remove_user
 from stalkerweb import app, mongo, rc
-from flask.ext.wtf import Form, Required, TextField, PasswordField, BooleanField
+from flask.ext.wtf import Form, Required, TextField, PasswordField, \
+    BooleanField
 from werkzeug.contrib.cache import RedisCache
 
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
@@ -35,6 +36,7 @@ def _get_local_metrics():
     except Exception as err:
         print err
         return None
+
 
 def _get_remote_checks(clusterid, state):
     endpoints = {'alerting': '/checks/state/alerting',
@@ -97,6 +99,7 @@ def _valid_registration(content):
             return False
         if not isinstance(content['checks'][check]['args'], basestring):
             return False
+    # not actually used right now
     # validate roles shoudl just be a list of strings
     for role in content['roles']:
         if not isinstance(role, basestring):
@@ -414,7 +417,10 @@ def findhost():
     if not request.args.get('q'):
         abort(400)
     result = []
-    for i in mongo.db.hosts.find({'$or': [{'hostname': {'$regex': '^%s' % request.args.get('q')}}, {'ip': {'$regex': '^%s' % request.args.get('q')}}]}, fields={'hostname': True, 'ip': True, '_id': False}):
+    for i in mongo.db.hosts.find({'$or': [{'hostname': {'$regex': '^%s' % request.args.get('q')}},
+                                          {'ip': {'$regex': '^%s' % request.args.get('q')}}]},
+                                 fields={'hostname': True, 'ip': True,
+                                         '_id': False}):
         if i['hostname'].startswith(request.args.get('q')):
             result.append(i['hostname'])
         else:
