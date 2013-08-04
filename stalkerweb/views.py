@@ -519,6 +519,19 @@ def signin():
 def page_not_found(e):
     return render_template('404.html'), 404
 
+
+@app.route('/routes/list', methods = ['GET'])
+@login_required
+def help():
+    """Show endpoints"""
+    func_list = {}
+    for rule in app.url_map.iter_rules():
+        if rule.endpoint != 'static':
+            print app.view_functions[rule.endpoint].__globals__
+            func_list[rule.rule] = app.view_functions[rule.endpoint].__doc__
+    return jsonify(func_list)
+
+
 if __name__ == '__main__':
     debug = True
     app.run(host='0.0.0.0', debug=debug)
