@@ -46,7 +46,7 @@ class StalkerAgent(object):
                 self.scripts[i] = self._script_config(i)
 
     def _script_ok(self, script_name):
-
+        """Verify this is a check script and we have exec perms"""
         tgt = os.path.join(self.script_dir, script_name)
         if os.path.splitext(tgt)[1] == '.cfg':
             return False  # this is a config file
@@ -73,6 +73,7 @@ class StalkerAgent(object):
             args = self.fullconf[check].get('args') or ''
             interval = int(self.fullconf[check].get('interval',
                                                     self.default_interval))
+            follow_up = int(self.fullconf[check].get('follow_up', interval))
             if not cmd:
                 self.logger.warning('No cmd specified for %s skipping' % check)
             elif not os.path.isfile(cmd) or not os.access(cmd, os.X_OK):
@@ -80,7 +81,8 @@ class StalkerAgent(object):
             else:
                 self.logger.info('found %s check' % cmd)
                 self.scripts[check] = {'cmd': cmd, 'args': args,
-                                       'interval': interval}
+                                       'interval': interval,
+                                       'follow_up': follow_up}
 
     def _script_config(self, script_name):
         """Check if theres a .cfg for a given script, if so load the config"""
@@ -91,7 +93,10 @@ class StalkerAgent(object):
             sconf = {}
         return {'cmd': os.path.join(self.script_dir, script_name),
                 'args': sconf.get('args', ''),
-                'interval': int(sconf.get('interval', self.default_interval))}
+                'interval': int(sconf.get('interval', self.default_interval)),
+                'follow_up': int(sconf.get('follow_up',
+                                           sconf.get('interval',
+                                                     self.default_interval)))}
 
     def notify_master(self):
         """Send master our config"""

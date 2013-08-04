@@ -95,14 +95,11 @@ def _valid_registration(content):
             return False
         if not isinstance(content['checks'][check]['interval'], int):
             return False
+        if not isinstance(content['checks'][check]['follow_up'], int):
+            return False
         if 'args' not in content['checks'][check]:
             return False
         if not isinstance(content['checks'][check]['args'], basestring):
-            return False
-    # not actually used right now
-    # validate roles shoudl just be a list of strings
-    for role in content['roles']:
-        if not isinstance(role, basestring):
             return False
     # everything checked out
     return True
@@ -134,6 +131,7 @@ def register():
             bulk_load.append({'hostname': hid, 'ip': request.remote_addr,
                               'check': i, 'last': 0, 'next': _rand_start(),
                               'interval': checks[i]['interval'],
+                              'follow_up': checks[i]['follow_up'],
                               'pending': False,
                               'status': True, 'in_maintenance': False,
                               'suspended': False, 'out': ''})

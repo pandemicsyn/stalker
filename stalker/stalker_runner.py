@@ -168,7 +168,7 @@ class StalkerRunner(object):
         previous_status = check['status']
         try:
             result = self._exec_check('https://%s:5050/%s' % (check['ip'],
-                                                             check_name))
+                                                              check_name))
         except Exception as err:
             result = {check_name: {'status': 2, 'out': '', 'err': str(err)}}
             self.statsd.counter('checks.error')
@@ -184,13 +184,13 @@ class StalkerRunner(object):
                                result[check_name]['err'],
                                'fail_count': 0}}
             self.statsd.counter('checks.passed')
-        else:
+        else:  # check is failing
             if previous_status is True:
                 self._flap_incr(flapid)
             query = {'_id': ObjectId(check['_id'])}
             update = {"$set": {'pending': False, 'status': False,
                                'flapping': self.flapping(flapid),
-                               'next': time() + check['interval'],
+                               'next': time() + check['follow_up'],
                                'last': time(),
                                'out': result[check_name]['out'] +
                                result[check_name]['err']},
