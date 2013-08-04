@@ -79,6 +79,9 @@ def main():
             print stalkerweb.mongo.db.checks.drop()
             print stalkerweb.mongo.db.checks.create_index('alerting')
             print stalkerweb.mongo.db.checks.create_index('pending')
+            print stalkerweb.mongo.db.checks.create_index('suspended')
+            print stalkerweb.mongo.db.checks.create_index('status')
+            print stalkerweb.mongo.db.checks.create_index('flapping')
             print stalkerweb.mongo.db.checks.create_index('hostname')
             print stalkerweb.mongo.db.users.drop()
             print stalkerweb.mongo.db.users.create_index('username',
