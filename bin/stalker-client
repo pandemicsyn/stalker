@@ -6,6 +6,65 @@ import sys
 import optparse
 
 
+def _requeue(config, cid):
+    target = config['url'] + '/checks/id/' + cid + '/next'
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    data = {'next': 'now'}
+    try:
+        req = urllib2.Request(target, json.dumps(data), headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s set for recheck." % cid
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _remove_check(config, cid, name=None):
+    target = config['url'] + '/checks/id/' + cid
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        req.get_method = lambda: 'DELETE'
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s deleted." % (name or cid)
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _remove_host(config, pattern):
+    print "Looking up checks for %s..." % pattern
+    host = _get_checks_by_host(config, pattern)
+    print [i['check'] for i in host['checks']]
+    _ok = raw_input('Ok to remove all these checks? [y/n] ').strip().lower()
+    if _ok != 'y':
+        print "Aborting."
+        return
+    else:
+        for check in host['checks']:
+            _remove_check(config, check['_id'], check['check'])
+
+
+def _get_checks_by_host(config, pattern):
+    target = config['url'] + '/checks/host/' + pattern
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        res = urllib2.urlopen(req)
+        return json.loads(res.read())
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No checks for %s" % pattern
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
 def _pjson(content):
     try:
         import pygments.lexers
@@ -45,6 +104,12 @@ def main():
                     help="Get suspended")
     args.add_option('--verbose', '-v', action="store_true",
                     help="Print out json (fancy if pygments is present")
+    args.add_option('--recheck', dest='recheck_id',
+                    help="Recheck check with given id")
+    args.add_option('--remove', dest='remove_host',
+                    help="Remove all checks for given host or ip")
+    args.add_option('--list', '-l', dest='list_host',
+                    help="List all checks for given host or ip")
     options, arguments = args.parse_args()
 
     conf_file = os.environ.get('stalker-client-conf',
@@ -75,7 +140,14 @@ def main():
 
     if len(sys.argv) == 1:
         options.alerting = True
-
+    if options.recheck_id:
+        _requeue(config, options.recheck_id)
+    if options.remove_host:
+        _remove_host(config, options.remove_host)
+    if options.list_host:
+        host = _get_checks_by_host(config, options.list_host)
+        if host:
+            print json.dumps(host, sort_keys=False, indent=4)
     if options.alerting:
         failed_hosts = set()
         content, parsed = _request(config, 'alerting')
@@ -93,12 +165,12 @@ def main():
             for host in sorted_alerts:
                 for i in sorted_alerts[host]:
                     clean_out = " ".join([x for x in i['out'].split('\n')])
-                    if clean_out.startswith('<urlopen error [Errno'): 
+                    if clean_out.startswith('<urlopen error [Errno'):
                         failed_hosts.add(i['hostname'])
                     else:
-                        print '%s on %s is alerting because "%s"' % (i['check'],
-                                                                     i['hostname'],
-                                                                     clean_out)
+                        print '(%s) %s on %s is alerting because "%s"' % (i['_id'], i['check'],
+                                                                          i['hostname'],
+                                                                          clean_out)
             print "=== Alerting - unreachable ==="
             print " ".join([x for x in failed_hosts])
     if options.pending:
