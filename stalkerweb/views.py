@@ -2,12 +2,13 @@ import json
 import eventlet
 eventlet.monkey_patch()
 from eventlet.green import urllib2
-from flask import request, abort, jsonify, render_template, session, redirect
+from flask import request, abort, render_template, session, redirect
 import pymongo
 from bson import ObjectId
 from time import time
 from random import choice
 from stalkerweb.auth import is_valid_login, login_required, remove_user
+from stalkerweb.stutils import jsonify
 from stalkerweb import app, mongo, rc
 from flask.ext.wtf import Form, Required, TextField, PasswordField, \
     BooleanField
@@ -16,7 +17,6 @@ from werkzeug.contrib.cache import RedisCache
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
 cache = RedisCache(default_timeout=app.config['CACHE_TTL'])
-
 
 class SignInForm(Form):
     username = TextField(validators=[Required()])
@@ -95,14 +95,11 @@ def _valid_registration(content):
             return False
         if not isinstance(content['checks'][check]['interval'], int):
             return False
+        if not isinstance(content['checks'][check]['follow_up'], int):
+            return False
         if 'args' not in content['checks'][check]:
             return False
         if not isinstance(content['checks'][check]['args'], basestring):
-            return False
-    # not actually used right now
-    # validate roles shoudl just be a list of strings
-    for role in content['roles']:
-        if not isinstance(role, basestring):
             return False
     # everything checked out
     return True
@@ -134,6 +131,7 @@ def register():
             bulk_load.append({'hostname': hid, 'ip': request.remote_addr,
                               'check': i, 'last': 0, 'next': _rand_start(),
                               'interval': checks[i]['interval'],
+                              'follow_up': checks[i]['follow_up'],
                               'pending': False,
                               'status': True, 'in_maintenance': False,
                               'suspended': False, 'out': ''})
@@ -269,7 +267,8 @@ def check_next(checkid):
                 return jsonify({'success': True})
             else:
                 abort(404)
-        except (KeyError, ValueError, pymongo.errors.InvalidId):
+        except (KeyError, ValueError, pymongo.errors.InvalidId) as err:
+            print err
             abort(400)
 
 
@@ -308,29 +307,25 @@ def check_suspended(checkid):
 @login_required
 def check_state(state):
     if state == 'alerting':
-        q = [x for x in mongo.db.checks.find({'status': False},
-                                             fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'status': False})]
         if q:
             return jsonify({'alerting': q})
         else:
             return jsonify({'alerting': []})
     elif state == 'pending':
-        q = [x for x in mongo.db.checks.find({'pending': True},
-                                             fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'pending': True})]
         if q:
             return jsonify({'pending': q})
         else:
             return jsonify({'pending': []})
     elif state == 'in_maintenance':
-        q = [x for x in mongo.db.checks.find({'in_maintenance': True},
-                                             fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'in_maintenance': True})]
         if q:
             return jsonify({'in_maintenance': q})
         else:
             return jsonify({'in_maintenance': []})
     elif state == 'suspended':
-        q = [x for x in mongo.db.checks.find({'suspended': True},
-                                             fields={'_id': False})]
+        q = [x for x in mongo.db.checks.find({'suspended': True})]
         if q:
             return jsonify({'suspended': q})
         else:

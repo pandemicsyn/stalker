@@ -36,7 +36,8 @@ class PagerDuty(object):
                            'incident_key': incident_key,
                            'event_type': 'resolve',
                            'description': '%s on %s is UP' % (check['check'],
-                                                              check['hostname']),
+                                                              check[
+                                                                  'hostname']),
                            'details': check})
         try:
             req = urllib2.Request(self.url, data, headers)
@@ -65,7 +66,8 @@ class PagerDuty(object):
                            'incident_key': incident_key,
                            'event_type': 'trigger',
                            'description': '%s on %s is DOWN' % (check['check'],
-                                                                check['hostname']),
+                                                                check[
+                                                                    'hostname']),
                            'details': check})
         try:
             req = urllib2.Request(self.url, data, headers)
