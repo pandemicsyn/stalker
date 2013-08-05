@@ -1,8 +1,7 @@
 import os
 import json
-import urllib2
 from eventlet import wsgi
-from eventlet.green import subprocess
+from eventlet.green import subprocess, urllib2
 from socket import gethostname
 import eventlet
 from stalker.stalker_utils import Daemon, FileLikeLogger, readconf, get_logger

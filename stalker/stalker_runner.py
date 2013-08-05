@@ -1,12 +1,14 @@
 import os
 import errno
 import signal
-import urllib2
 from time import time
 
 import eventlet
+from eventlet.green import urllib2
+
 from bson import ObjectId
 from bson.json_util import loads
+
 from stalker.stalker_utils import Daemon, get_logger, get_syslogger, \
     TRUE_VALUES, StatsdEvent
 eventlet.monkey_patch()
@@ -188,6 +190,8 @@ class StalkerRunner(object):
             if previous_status is True:
                 self._flap_incr(flapid)
             query = {'_id': ObjectId(check['_id'])}
+            if 'follow_up' not in check: #continue to work with old schema
+                check['follow_up'] = check['interval']
             update = {"$set": {'pending': False, 'status': False,
                                'flapping': self.flapping(flapid),
                                'next': time() + check['follow_up'],
@@ -216,9 +220,13 @@ class StalkerRunner(object):
                 count = len(checks)
                 self.logger.debug("Got %d checks" % count)
                 self.statsd.counter('queue.get', count)
-                check_result = [x for x in self.pool.imap(self.run_check,
-                                                          checks)]
-                self.logger.debug(check_result)
+                try:
+                    check_result = [x for x in self.pool.imap(self.run_check,
+                                                              checks)]
+                    self.logger.debug(check_result)
+                except Exception:
+                    self.logger.exception('Error running checks')
+
             else:
                 self.logger.debug('No checks, sleeping')
             eventlet.sleep()
