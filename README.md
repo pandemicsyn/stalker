@@ -14,9 +14,9 @@ Components:
 ## stalker_agent.py
 
 stalker_agent.py runs on all client boxes. On boot it looks in stalker-agent.conf for defined checks, but you can also just drop scripts in `script_dir` and it will automatically use them as well . Once its discovered what checks should be run it notifies stalkerweb and reports what checks it found installed and configured, and at what interval they should be run at. It then fires
-up a wsgi app on port 5050 to listen for requests to run installed checks. You can trigger a check be run like so:
+up a wsgi app on port 5050 to listen for requests to run installed checks. You can trigger a check to be run like so:
 
-    fhines@ubuntu:~/stalker (master)[virt]$ http http://localhost:5050/check_load X-CHECK-KEY:canhazstatus
+    fhines@ubuntu:~/stalker (master)[virt]$ http https://localhost:5050/check_load X-CHECK-KEY:canhazstatus
     HTTP/1.1 200 OK
     Content-Length: 173
     Content-Type: application/json
@@ -40,8 +40,8 @@ checks or configured hosts. In addition to the UI running on http://stalkerweb:5
 |-------|---------------|-----------|
 | /global/clusters | Config info for all known stalker clusters | GET |
 | /stats | Statistics for local instance| GET |
-| /stats/<clusterid> | Statistics for remote stalker clusters | GET |
-| /findhost | Just used for the type ahead when | GET |
+| /stats/[clusterid] | Statistics for remote stalker clusters | GET |
+| /findhost | Just used for the type ahead in the UI | GET |
 | /register/ | stalker_agent registration end point |  POST |
 | /hosts/ | All hosts | GET |
 | /hosts/[hostname] |  Config for a specific host | GET |
@@ -51,9 +51,9 @@ checks or configured hosts. In addition to the UI running on http://stalkerweb:5
 | /checks/id/[checkid]/next | Get or Set next run time | GET, POST |
 | /checks/id/[checkid]/suspended | Get or Set suspend state | GET, POST |
 | /checks/state/[state] |  All checks for a given state [alerting, pending, in_maintenance] | GET |
-| /global/<clusterid>/checks/state/<state> | All checks for a given state in a remote stalker claster | GET |
+| /global/[clusterid]/checks/state/[state] | All checks for a given state in a remote stalker claster | GET |
 | /user/ | List all users | GET |
-| /user/<username> | List/Modify/Delete a user | GET, POST, DELETE |
+| /user/[username] | List/Modify/Delete a user | GET, POST, DELETE |
 | /routes/list | Get a list of all available flask routes | GET |
 
 ## stalker_manager
