@@ -39,8 +39,7 @@ class StalkerManager(object):
         self.metrics['suspended'] = self.checks.find({'suspended':
                                                      True}).count()
         self.metrics['failing'] = self.checks.find({'status': False}).count()
-        self.metrics['flapping'] = self.checks.find(
-            {'flapping': False}).count()
+        self.metrics['flapping'] = self.checks.find({'flapping': True}).count()
         self.metrics['qsize'] = self.queue_len()
         self.logger.info("stats: %s" % self.metrics)
         self.rc.mset(self.metrics)
