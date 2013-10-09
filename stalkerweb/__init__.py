@@ -4,7 +4,7 @@ from eventlet.green.socket import getfqdn
 from flask import Flask
 from flask.ext.pymongo import PyMongo
 import redis
-
+from stalkerweb.stutils import ObjectIDConverter
 
 def _init_redis(app):
     """Initializes Redis client from app config"""
@@ -19,6 +19,9 @@ def _init_redis(app):
                        password=app.config['REDIS_PASSWORD'])
 
 app = Flask(__name__, instance_relative_config=False)
+
+app.url_map.converters['objectid'] = ObjectIDConverter
+
 app.config['MONGO_DBNAME'] = 'stalkerweb'
 app.config['LOCAL_CID'] = getfqdn()
 app.config['MONGO_USERNAME'] = None

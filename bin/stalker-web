@@ -7,6 +7,7 @@ import getpass
 import optparse
 from subprocess import Popen
 
+STATE_LOG_SIZE = 5368709120
 
 def _gen_key(key_len=16, extended=False):
     base = string.ascii_letters + string.digits
@@ -29,6 +30,7 @@ def auto_gen_config():
 
 
 def main():
+    global STATE_LOG_SIZE
     usage = '''%prog --host 0.0.0.0 -p 5000 --debug -a <username>'''
     args = optparse.OptionParser(usage)
     args.add_option('--host', default='0.0.0.0',
@@ -86,6 +88,11 @@ def main():
             print stalkerweb.mongo.db.users.drop()
             print stalkerweb.mongo.db.users.create_index('username',
                                                          unique=True)
+            print stalkerweb.mongo.db.state_log.drop()
+            print stalkerweb.mongo.db.create_collection('state_log', capped=True, size=STATE_LOG_SIZE)
+            print stalkerweb.mongo.db.state_log.create_index('hostname')
+            print stalkerweb.mongo.db.state_log.create_index('check_name')
+
         sys.exit()
 
     if options.add_user:
