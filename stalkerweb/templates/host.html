@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block head %}
-
     <script>
       target = "{{ target }}";
       function AppViewModel() {
@@ -9,6 +8,7 @@
         self.hostip = ko.observable('0.0.0.0');
         self.host_roles = ko.observableArray([]);
         self.checks = ko.observableArray([]);
+        self.stateLog = ko.observableArray([]);
         self.changes = ko.observableArray([]);
       }
       function loadHost() {
@@ -119,6 +119,33 @@
                 
         })
       }
+      function loadStatelog(target) {
+        $.ajax({type: "GET",
+                url: "/state_log/" + self.hostname() + "/" + target['check'],
+                dataType: "json",
+                success: function(data) {
+                  self.stateLog.removeAll()
+                  console.log(data.state_log)
+                  for (var i in data.state_log) {
+                    check_fields = {"last": null, "cid": null, "status": null, "out": null, "cid": null, "hostname": null, "_id": null, "check": null}
+                    raw = data.state_log[i]
+                    for (i in raw) {
+                      if (i in check_fields) {
+                        if (i == 'last' || i == 'next') {
+                          check_fields[i] = new Date(raw[i]*1000).toUTCString();
+                        } else {
+                          check_fields[i] = raw[i]
+                        }
+                      }
+                    }
+                    self.stateLog.push(check_fields)
+                  }
+                },
+                error: function(data) {
+                  self.stateLog.removeAll()
+                }
+        })
+      }
       loadHost();
       loadChecks();
       var interval = setInterval(loadChecks, 10000);
@@ -153,12 +180,11 @@
           <thead>
             <tr>
               <th>Modify</th>
-              <th>Check</th>
-              <th>Maintenance</th>
+              <th>Log</th>
+              <th>Name</th>
               <th>Interval</th>
               <th>Last run time</th>
               <th>Next run time</th>
-              <th>Pending</th>
               <th>Status</th>
               <th>Flapping</th>
               <th>Suspended</th>
@@ -181,17 +207,16 @@
                   </ul>
                 </div>
               </td>
+              <td><a href="#myModal" role="button" class="btn btn-inverse" data-toggle="modal"  data-bind="click: loadStatelog"><i class="icon-list icon-white"></i></a></td>
               <td><span data-bind="text: check"></span></td>
-              <td><span data-bind="text: in_maintenance"></span></td>
               <td><span data-bind="text: interval"></span></td>
               <td><span data-bind="text: last"></span></td>
               <td><span data-bind="text: next"></span></td>
-              <td><span data-bind="text: pending"></span></td>
               <td><span data-bind="text: status"></span></td>
               <td><span data-bind="text: flapping"></span></td>
               <td><span data-bind="text: suspended"></span></td>
               <td><span data-bind="text: out"></span></td>
-              <td><button class="btn btn-danger" data-bind="click: deleteCheck"><i class="icon-trash icon-white"></i></button>
+              <td><button class="btn btn-danger" data-bind="click: deleteCheck"><i class="icon-trash icon-white"></i></button></td>
             </tr>
           </tbody>
         </table>
@@ -205,6 +230,35 @@
 
 
     </div> <!-- /container -->
+    
+    <!-- Modal -->
+    <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3 id="myModalLabel">State Log</h3>
+      </div>
+      <div class="modal-body">
+        <table class="table table-striped table-bordered table-hover">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Last</th>
+              <th>CheckId</th>
+            </tr>
+          </thead>
+          <tbody data-bind="foreach: stateLog">
+            <tr data-bind="css: {error: !status, success: status}">
+              <td><span data-bind="text: status"></span></td>
+              <td><span data-bind="text: last"></span></td>
+              <td><span data-bind="text: cid"></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
     
     <script>
       ko.applyBindings(AppViewModel());

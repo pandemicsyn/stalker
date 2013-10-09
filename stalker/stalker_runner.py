@@ -43,6 +43,7 @@ class StalkerRunner(object):
         self.debug = False
         self.db = self.c[db_name]
         self.checks = self.db['checks']
+        self.state_log = self.db['state_log']
         self.flap_window = int(conf.get('flap_window', '1200'))
         self.flap_threshold = int(conf.get('flap_threshold', '5'))
         self.alert_threshold = int(conf.get('alert_threshold', '3'))
@@ -105,6 +106,16 @@ class StalkerRunner(object):
         self.rc.incr(flapid)
         self.rc.expire(flapid, self.flap_window)
 
+    def _log_state_change(self, check):
+        """Log that a state change occurred in the state_log table"""
+        try:
+            self.state_log.insert({'hostname': check['hostname'],
+                'check': check['check'], 'cid': check['_id'],
+                'status': check['status'], 'last': check['last'],
+                'out': check['out']})
+        except Exception:
+            self.logger.exception('Error writing to state_log')
+
     def flapping(self, flapid):
         """Check if a check is flapping"""
         flap_count = int(self.rc.get(flapid) or 0)
@@ -137,13 +148,13 @@ class StalkerRunner(object):
         if check['status'] != previous_status:
             self.logger.info('%s:%s state changed.' % (check['hostname'],
                                                        check['check']))
+            self._log_state_change(check)
             state_changed = True
             self.statsd.counter('.state_change')
         else:
             self.logger.debug('%s:%s state unchanged.' % (check['hostname'],
                                                           check['check']))
             state_changed = False
-
         if check['status'] is True and not check['flapping']:
             if state_changed:
                 self.emit_clear(check)

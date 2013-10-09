@@ -6,7 +6,7 @@ from flask import request, abort, render_template, session, redirect
 import pymongo
 from bson import ObjectId
 from time import time
-from random import choice
+from random import randint
 from stalkerweb.auth import is_valid_login, login_required, remove_user
 from stalkerweb.stutils import jsonify
 from stalkerweb import app, mongo, rc
@@ -76,7 +76,7 @@ def _get_users_theme(username):
 def _rand_start():
     """Used to randomize the first check (and hopefully stagger
     checks on a single host)"""
-    return time() + choice(xrange(300))
+    return time() + randint(1, 600)
 
 
 def _valid_registration(content):
@@ -241,6 +241,21 @@ def checks_by_id(checkid):
     else:
         abort(400)
 
+
+@app.route('/state_log/<hostname>/<checkname>', methods=['GET'])
+@login_required
+def state_log_by_check(hostname, checkname):
+    if request.method == 'GET':
+        checks = [x for x in mongo.db.state_log.find({'hostname': hostname, 'check': checkname})]
+        print 'wtf'
+        print checks
+        if checks:
+            print checks
+            return jsonify({'state_log': checks})
+        else:
+            abort(404)
+    else:
+        abort(400)
 
 @app.route('/checks/id/<checkid>/next', methods=['GET', 'POST'])
 @login_required
