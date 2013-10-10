@@ -99,6 +99,9 @@ def _valid_registration(content):
             return False
         if 'args' not in content['checks'][check]:
             return False
+        if 'priority' in content['checks'][check]:
+            if not isinstance(content['checks'][check]['priority'], int):
+                return False
         if not isinstance(content['checks'][check]['args'], basestring):
             return False
     # everything checked out
@@ -128,13 +131,15 @@ def register():
         mongo.db.checks.remove({'hostname': hid})
         bulk_load = []
         for i in checks:
+            print i
             bulk_load.append({'hostname': hid, 'ip': request.remote_addr,
                               'check': i, 'last': 0, 'next': _rand_start(),
                               'interval': checks[i]['interval'],
                               'follow_up': checks[i]['follow_up'],
                               'pending': False,
                               'status': True, 'in_maintenance': False,
-                              'suspended': False, 'out': ''})
+                              'suspended': False, 'out': '',
+                              'priority': checks[i].get('priority', 1)})
         mongo.db.checks.insert(bulk_load)
     except pymongo.errors.DuplicateKeyError as err:
         print err

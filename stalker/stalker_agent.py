@@ -28,6 +28,7 @@ class StalkerAgent(object):
         self.check_key = conf.get('check_key', 'canhazstatus')
         self.script_dir = conf.get('script_dir', '/etc/stalker/scripts')
         self.default_interval = int(conf.get('default_interval', '300'))
+        self.default_priority = int(conf.get('default_priority', '1'))
         self.scripts = {}
         self.hostname = conf.get('hostname', gethostname())
         self.roles = [x.strip() for x in conf.get('roles',
@@ -72,6 +73,8 @@ class StalkerAgent(object):
             args = self.fullconf[check].get('args') or ''
             interval = int(self.fullconf[check].get('interval',
                                                     self.default_interval))
+            priority = int(self.fullconf[check].get('priority',
+                                                    self.default_priority))
             follow_up = int(self.fullconf[check].get('follow_up', interval))
             if not cmd:
                 self.logger.warning('No cmd specified for %s skipping' % check)
@@ -81,6 +84,7 @@ class StalkerAgent(object):
                 self.logger.info('found %s check' % cmd)
                 self.scripts[check] = {'cmd': cmd, 'args': args,
                                        'interval': interval,
+                                       'priority': priority,
                                        'follow_up': follow_up}
 
     def _script_config(self, script_name):
@@ -93,6 +97,7 @@ class StalkerAgent(object):
         return {'cmd': os.path.join(self.script_dir, script_name),
                 'args': sconf.get('args', ''),
                 'interval': int(sconf.get('interval', self.default_interval)),
+                'priority': int(sconf.get('priority', self.default_priority)),
                 'follow_up': int(sconf.get('follow_up',
                                            sconf.get('interval',
                                                      self.default_interval)))}

@@ -110,9 +110,11 @@ class StalkerRunner(object):
         """Log that a state change occurred in the state_log table"""
         try:
             self.state_log.insert({'hostname': check['hostname'],
-                'check': check['check'], 'cid': check['_id'],
-                'status': check['status'], 'last': check['last'],
-                'out': check['out']})
+                                   'check': check['check'],
+                                   'cid': check['_id'],
+                                   'status': check['status'],
+                                   'last': check['last'],
+                                   'out': check['out']})
         except Exception:
             self.logger.exception('Error writing to state_log')
 
@@ -201,7 +203,7 @@ class StalkerRunner(object):
             if previous_status is True:
                 self._flap_incr(flapid)
             query = {'_id': ObjectId(check['_id'])}
-            if 'follow_up' not in check: #continue to work with old schema
+            if 'follow_up' not in check:  # continue to work with old schema
                 check['follow_up'] = check['interval']
             update = {"$set": {'pending': False, 'status': False,
                                'flapping': self.flapping(flapid),
@@ -273,7 +275,7 @@ class SRDaemon(Daemon):
             os.killpg(0, signal.SIGTERM)
 
         def hup(*args):
-            """Shuts down the server, but allows running requests to complete"""
+            """Shuts down the server, but allow running requests to complete"""
             logger.error('SIGHUP received')
             signal.signal(signal.SIGHUP, signal.SIG_IGN)
             running[0] = False

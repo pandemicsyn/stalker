@@ -2,7 +2,7 @@
 
 import eventlet
 from eventlet.green import urllib, urllib2
-from stalker_utils import get_basic_auth, TRUE_VALUES
+from stalker.stalker_utils import get_basic_auth, TRUE_VALUES
 
 smtplib = eventlet.import_patched('smtplib')
 
@@ -20,19 +20,21 @@ class PagerDuty(object):
         self.conf = conf
         self.logger = logger
         self.rc = redis_client
-        self.service_key = conf.get('pagerduty_service_key')
-        if not self.service_key:
-            raise Exception('No pagerduty service key in conf')
-        self.url = conf.get(
-            'pagerduty_url', 'https://events.pagerduty.com/generic/2010-04-15/create_event.json')
+        standard_service_key = conf.get('pagerduty_service_key')
+        if not standard_service_key:
+            raise Exception('No pagerduty standard service key in conf')
+        crit_service_key = conf.get('pagerduty_critical_service_key')
+        if not crit_service_key:
+            crit_service_key = standard_service_key
+        self.service_keys = {1: standard_service_key, 2: crit_service_key}
+        self.url = conf.get('pagerduty_url', 'https://events.pagerduty.com/generic/2010-04-15/create_event.json')
         self.host_group = conf.get(
             'pagerduty_host_group_alerts', 'n').lower() in TRUE_VALUES
         self.prefix = conf.get('pagerduty_incident_key_prefix')
 
-    def _resolve(self, check, incident_key):
-
+    def _resolve(self, check, incident_key, priority):
         headers = {'Content-Type': 'application/json'}
-        data = json.dumps({'service_key': self.service_key,
+        data = json.dumps({'service_key': self.service_keys[priority],
                            'incident_key': incident_key,
                            'event_type': 'resolve',
                            'description': '%s on %s is UP' % (check['check'],
@@ -60,14 +62,13 @@ class PagerDuty(object):
             self.logger.exception('Error resolving pagerduty event.')
             return False
 
-    def _trigger(self, check, incident_key):
+    def _trigger(self, check, incident_key, priority):
         headers = {'Content-Type': 'application/json'}
-        data = json.dumps({'service_key': self.service_key,
+        data = json.dumps({'service_key': self.service_keys[priority],
                            'incident_key': incident_key,
                            'event_type': 'trigger',
-                           'description': '%s on %s is DOWN' % (check['check'],
-                                                                check[
-                                                                    'hostname']),
+                           'description': '%s on %s is DOWN' %
+                           (check['check'], check['hostname']),
                            'details': check})
         try:
             req = urllib2.Request(self.url, data, headers)
@@ -92,8 +93,11 @@ class PagerDuty(object):
 
     def clear(self, check):
         """Send clear"""
+        priority = check.get('priority') or 1
+        if priority == 0:
+            return
         check['_id'] = str(check['_id'])
-        if self.host_group:
+        if self.host_group and priority != 2:
             incident_key = check['hostname']
         else:
             incident_key = '%s:%s' % (check['hostname'], check['check'])
@@ -102,15 +106,19 @@ class PagerDuty(object):
         track_id = 'pgduty:notified:%s' % incident_key
         notified = self.rc.get(track_id) or 0
         if notified != 0:
-            ok = self._resolve(check, incident_key)
+            ok = self._resolve(check, incident_key, priority)
             if not ok:
                 # TODO: do backup notifications
                 pass
 
     def fail(self, check):
         """Send failure if not already notified"""
+        priority = check.get('priority') or 1
+        if priority == 0:
+            self.logger.debug('Alert is priority 0. Skipping notification.')
+            return
         check['_id'] = str(check['_id'])
-        if self.host_group:
+        if self.host_group and priority != 2:
             incident_key = check['hostname']
         else:
             incident_key = '%s:%s' % (check['hostname'], check['check'])
@@ -119,7 +127,7 @@ class PagerDuty(object):
         track_id = 'pgduty:notified:%s' % incident_key
         notified = self.rc.get(track_id) or 0
         if notified == 0:
-            ok = self._trigger(check, incident_key)
+            ok = self._trigger(check, incident_key, priority)
             if ok:
                 self.rc.incr(track_id)
             else:
