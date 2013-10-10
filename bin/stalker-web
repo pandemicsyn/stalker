@@ -44,6 +44,8 @@ def main():
     args.add_option('--add-user', '-a', help="Add a user")
     args.add_option('--init-db', action="store_true",
                     help="Initializes a stalker db. Only run at setup.")
+    args.add_option('--init-state-log', action="store_true",
+                    help="Initializes state_log collection. Only run at upgrade.")
     args.add_option('--gen-config', action="store_true",
                     help="Generate/print a config for use with stalkerweb")
     args.add_option('-g', '--gunicorn', action="store_true",
@@ -89,10 +91,20 @@ def main():
             print stalkerweb.mongo.db.users.create_index('username',
                                                          unique=True)
             print stalkerweb.mongo.db.state_log.drop()
-            print stalkerweb.mongo.db.create_collection('state_log', capped=True, size=STATE_LOG_SIZE)
+            print stalkerweb.mongo.db.create_collection('state_log',
+                                                        capped=True,
+                                                        size=STATE_LOG_SIZE)
             print stalkerweb.mongo.db.state_log.create_index('hostname')
-            print stalkerweb.mongo.db.state_log.create_index('check_name')
+            print stalkerweb.mongo.db.state_log.create_index('check')
+        sys.exit()
 
+    if options.init_state_log:
+        with stalkerweb.app.test_request_context():
+            print stalkerweb.mongo.db.create_collection('state_log',
+                                                        capped=True,
+                                                        size=STATE_LOG_SIZE)
+            print stalkerweb.mongo.db.state_log.create_index('hostname')
+            print stalkerweb.mongo.db.state_log.create_index('check')
         sys.exit()
 
     if options.add_user:
