@@ -38,7 +38,7 @@
                   for (var i in data.checks) {
                     check_fields = {"check": null, "in_maintenance": null, "interval": null, "last": null,
                                     "next": null, "pending": null, "status": null, "flapping": null, "suspended": null,
-                                    "out": null, "_id": null}
+                                    "out": null, "_id": null, "priority": null}
                     raw = data.checks[i]
                     for (i in raw) {
                       if (i in check_fields) {
@@ -189,6 +189,7 @@
               <th>Flapping</th>
               <th>Suspended</th>
               <th>Output</th>
+              <th>Priority</th>
               <th>Delete</th>
             </tr>
           </thead>
@@ -216,6 +217,7 @@
               <td><span data-bind="text: flapping"></span></td>
               <td><span data-bind="text: suspended"></span></td>
               <td><span data-bind="text: out"></span></td>
+              <td><span data-bind="text: priority"></span></td>
               <td><button class="btn btn-danger" data-bind="click: deleteCheck"><i class="icon-trash icon-white"></i></button></td>
             </tr>
           </tbody>

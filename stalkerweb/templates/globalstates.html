@@ -103,7 +103,9 @@
                 dataType: "json",
                 success: function(data) {
                   for (var i in data[clusterid][self.selectedState()]) {
-                    check_fields = {"cid": clusterid, "hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null, "last": null, "next": null, "pending": null, "status": null, "flapping": null, "suspended": null, "out": null}
+                    check_fields = {"cid": clusterid, "hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null,
+                                                                   "last": null, "next": null, "pending": null, "status": null, "flapping": null,
+                                                                   "suspended": null, "priority": null, "out": null}
                     raw = data[clusterid][self.selectedState()][i]
                     for (i in raw) {
                       if (i in check_fields) {
@@ -127,7 +129,9 @@
                 dataType: "json",
                 success: function(data) {
                   for (var i in data[self.selectedState()]) {
-                    check_fields = {"cid": self.localCid(), "hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null, "last": null, "next": null, "pending": null, "status": null, "flapping": null, "suspended": null, "out": null}
+                    check_fields = {"cid": self.localCid(), "hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null,
+                                                                         "last": null, "next": null, "pending": null, "status": null, "flapping": null,
+                                                                         "suspended": null, "priority": null, "out": null}
                     raw = data[self.selectedState()][i]
                     for (i in raw) {
                       if (i in check_fields) {
