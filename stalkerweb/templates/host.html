@@ -168,7 +168,7 @@
         </div>
       </div>
       
-      {% if not config['GRAPHITE_ENABLE'] %}
+      {% if config['GRAPHITE_ENABLE'] %}
       <div class="row-fluid">
         <div class="span3">
           <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=Load&target=alias(servers.{{ target }}.loadavg.01%2C%2201%22)&target=alias(servers.{{ target }}.loadavg.05%2C%2205%22)&target=alias(servers.{{ target }}.loadavg.15%2C%2215%22)">
