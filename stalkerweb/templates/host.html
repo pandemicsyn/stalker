@@ -150,6 +150,12 @@
       loadChecks();
       var interval = setInterval(loadChecks, 10000);
     </script>
+    <style>
+      svg {
+        width:50%;
+        height:50%;
+      }
+    </style>
 
 {% endblock %}
 {% block body %}
@@ -158,13 +164,26 @@
       
       <div class="row-fluid">
         <div class="page-header">
-            <h1><span data-bind="text: self.hostname"></span> (<span data-bind="text: self.hostip"></span>)
-              <!-- <div data-bind="foreach: self.host_roles">
-                 <span class="label" data-bind="text: name"></span>
-              </div> -->
-            </h1>
+            <h1><span data-bind="text: self.hostname"></span> (<span data-bind="text: self.hostip"></span>)</h1>
         </div>
       </div>
+      
+      {% if config['GRAPHITE_ENABLE'] %}
+      <div class="row-fluid">
+        <div class="span3">
+          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=Load&target=alias(servers.{{ target }}.loadavg.01%2C%2201%22)&target=alias(servers.{{ target }}.loadavg.05%2C%2205%22)&target=alias(servers.{{ target }}.loadavg.15%2C%2215%22)">
+        </div>
+        <div class="span3">
+          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=IOPS&target=aliasByNode(servers.{{ target }}.iostat.*.iops%20%2C3)">
+        </div>
+        <div class="span3">
+          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=CPU&target=aliasByMetric(servers.{{ target }}.cpu.total.idle)&target=aliasByMetric(servers.{{ target }}.cpu.total.iowait)&target=aliasByMetric(servers.{{ target }}.cpu.total.nice)&target=aliasByMetric(servers.{{ target }}.cpu.total.system)&target=aliasByMetric(servers.{{ target }}.cpu.total.user)">
+        </div>
+        <div class="span3">
+          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=Net TX/RX&target=alias(sumSeries(servers.{{ target }}.network.eth*.tx_megabit%20)%2C%22TX%22)&target=alias(sumSeries(servers.{{ target }}.network.eth*.rx_megabit%20)%20%2C%22RX%22)&yUnitSystem=none">
+        </div>
+      </div>
+      {% endif %}
       
       <div class="row-fluid">
         <div data-bind="foreach: changes">

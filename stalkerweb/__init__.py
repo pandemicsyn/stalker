@@ -34,6 +34,8 @@ app.config['SECRET_KEY'] = 'SuperSecretDevKeyChangeMe!'
 app.config['THEMES'] = ['cosmo', 'cerulean', 'cyborg', 'slate', 'spacelab',
                         'united', 'flatly']
 app.config['CACHE_TTL'] = 10
+app.config['GRAPHITE_ENABLE'] = False
+app.config['GRAPHITE_HOST'] = 'http://localhost/'
 
 
 app.config.from_envvar('STALKERWEB_CONFIG')

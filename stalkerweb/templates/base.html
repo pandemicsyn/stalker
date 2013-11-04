@@ -7,19 +7,14 @@
     <meta name="description" content="">
     <meta name="author" content="">
     <!-- Le styles -->
-    <!-- <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css" rel="stylesheet"> -->
-    <!-- <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.1/cosmo/bootstrap.min.css" rel="stylesheet"> -->
-    <!-- <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.1/slate/bootstrap.min.css" rel="stylesheet"> -->
-    <!-- <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.1/cyborg/bootstrap.min.css" rel="stylesheet"> -->
-    <!-- <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.1/cerulean/bootstrap.min.css" rel="stylesheet"> -->
     {% if not session.theme %}
-      <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.1/cerulean/bootstrap.min.css" rel="stylesheet">
+      <link href="/static/css/cerulean/bootstrap.min.css" rel="stylesheet">
     {% else %}
-      <link href="//netdna.bootstrapcdn.com/bootswatch/2.3.1/{{ session.theme }}/bootstrap.min.css" rel="stylesheet">
+      <link href="/static/css/{{ session.theme }}/bootstrap.min.css" rel="stylesheet">
     {% endif %}
-    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.1/js/bootstrap.min.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/knockout/2.2.1/knockout-min.js"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    <script src="/static/js/knockout-min.js"></script>
     <style>
       body {
         padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
