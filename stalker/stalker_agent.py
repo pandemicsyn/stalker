@@ -1,6 +1,7 @@
 import os
 import json
-from eventlet import wsgi
+from random import randint
+from eventlet import wsgi, sleep
 from eventlet.green import subprocess, urllib2
 from socket import gethostname
 import eventlet
@@ -110,6 +111,7 @@ class StalkerAgent(object):
         req = urllib2.Request(target, data,
                               {'Content-Type': 'application/json'})
         req.add_header("X-REGISTER-KEY", self.register_key)
+        sleep(randint(1, 30))
         try:
             r = urllib2.urlopen(req)
             headers = r.info().dict
