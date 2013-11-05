@@ -22,9 +22,9 @@ Setup stalker-web (stdeb built) and dependencies (you may wanna build in virtual
     dpkg -i deb_dist/python-stalker_0.X.X-1_all.deb
     #alternatively setup stalker via setup.py
     #python setup.py install
-    sudo pip install flask flask-wtf flask-bcrypt flask-pymongo redis
+    sudo pip install flask flask-wtf==0.8 flask-bcrypt flask-pymongo redis
     stalker-web --gen-config > etc/stalkerweb-simple.cfg
-    stalker-web --config=etc/stalkerweb-simple.cfg --init-db
+    stalker-web --conf=etc/stalkerweb-simple.cfg --init-db
     stalker-web -a <yourusername>
     #start service in debug mode
     stalker-web --conf=etc/stalkerweb-simple.cfg -d
