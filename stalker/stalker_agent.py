@@ -114,12 +114,16 @@ class StalkerAgent(object):
         sleep(randint(1, 30))
         try:
             r = urllib2.urlopen(req)
-            headers = r.info().dict
-            text = r.read()
-            r.close()
-            self.logger.info('Notified master: %s %s %d' % (headers, text,
-                                                            r.code))
-            return True
+            if r.code / 200 != 1:
+                self.logger.error('Error notify master: %d status' % r.code)
+                return False
+            else:
+                headers = r.info().dict
+                text = r.read()
+                r.close()
+                self.logger.info('Notified master: %s %s %d' % (headers, text,
+                                                                r.code))
+                return True
         except Exception as err:
             self.logger.error('Error notifying master: %s' % err)
             return False
@@ -176,7 +180,10 @@ class SADaemon(Daemon):
 
     def run(self, conf):
         sa = StalkerAgent(conf)
-        sa.notify_master()
+        notified = False
+        while not notified:
+            notified = sa.notify_master()
+            sleep(30)
         while 1:
             try:
                 sa.start()
