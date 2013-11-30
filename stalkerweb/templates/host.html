@@ -5,6 +5,27 @@
       function AppViewModel() {
         var self = this;
         self.hostname = ko.observable();
+        {% if config['GRAPHITE_ENABLE'] %}
+          self.graphiteHost = "{{config['GRAPHITE_HOST']}}";
+        {% else %}
+          self.graphiteHost = null;
+        {% endif %}
+        self.graphLoad = ko.computed(function() {
+          return self.graphiteHost + "/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=Load&target=alias(servers." + self.hostname() + ".loadavg.05%2C%2205%22)&target=alias(servers." + self.hostname() + ".loadavg.15%2C%2215%22)";
+        }, self);
+        self.graphIOPS = ko.computed(function() {
+          return self.graphiteHost + "/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=IOPS&target=aliasByNode(servers." + self.hostname() + ".iostat.*.iops%20%2C3)";
+        }, self);
+        self.graphCPU = ko.computed(function() {
+          return self.graphiteHost + "/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=CPU&target=aliasByMetric(servers." + self.hostname() + ".cpu.total.idle)&target=aliasByMetric(servers." + self.hostname() + ".cpu.total.iowait)&target=aliasByMetric(servers."+ self.hostname() + ".cpu.total.nice)&target=aliasByMetric(servers." + self.hostname() + ".cpu.total.system)&target=aliasByMetric(servers." + self.hostname() + ".cpu.total.user)";
+        }, self);
+        self.graphNetwork = ko.computed(function() {
+          return self.graphiteHost + "/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=Net TX/RX&target=alias(sumSeries(servers." + self.hostname() + ".network.eth*.tx_megabit%20)%2C%22TX%22)&target=alias(sumSeries(servers." + self.hostname() + ".network.eth*.rx_megabit%20)%20%2C%22RX%22)&yUnitSystem=none";
+        }, self);
+        self.hasGraphs = ko.observable(false);
+        if (self.graphiteHost != null) {
+          self.hasGraphs(true);
+        }
         self.hostip = ko.observable('0.0.0.0');
         self.host_roles = ko.observableArray([]);
         self.checks = ko.observableArray([]);
@@ -168,22 +189,20 @@
         </div>
       </div>
       
-      {% if config['GRAPHITE_ENABLE'] %}
-      <div class="row-fluid">
+      <div class="row-fluid" data-bind="if: hasGraphs">
         <div class="span3">
-          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=Load&target=alias(servers.{{ target }}.loadavg.01%2C%2201%22)&target=alias(servers.{{ target }}.loadavg.05%2C%2205%22)&target=alias(servers.{{ target }}.loadavg.15%2C%2215%22)">
+          <img data-bind="attr: { src: graphLoad }">
         </div>
         <div class="span3">
-          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=IOPS&target=aliasByNode(servers.{{ target }}.iostat.*.iops%20%2C3)">
+          <img data-bind="attr: { src: graphIOPS }">
         </div>
         <div class="span3">
-          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=CPU&target=aliasByMetric(servers.{{ target }}.cpu.total.idle)&target=aliasByMetric(servers.{{ target }}.cpu.total.iowait)&target=aliasByMetric(servers.{{ target }}.cpu.total.nice)&target=aliasByMetric(servers.{{ target }}.cpu.total.system)&target=aliasByMetric(servers.{{ target }}.cpu.total.user)">
+          <img data-bind="attr: { src: graphCPU }">
         </div>
         <div class="span3">
-          <img src="{{config['GRAPHITE_HOST']}}/render/?format=svg&bgcolor=ffffff&fgcolor=000000&width=280&height=200&lineWidth=1.5&_salt=1381773239917&from=-1days&title=Net TX/RX&target=alias(sumSeries(servers.{{ target }}.network.eth*.tx_megabit%20)%2C%22TX%22)&target=alias(sumSeries(servers.{{ target }}.network.eth*.rx_megabit%20)%20%2C%22RX%22)&yUnitSystem=none">
+          <img data-bind="attr: { src: graphNetwork }">
         </div>
       </div>
-      {% endif %}
       
       <div class="row-fluid">
         <div data-bind="foreach: changes">
