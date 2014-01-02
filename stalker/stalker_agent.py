@@ -111,7 +111,6 @@ class StalkerAgent(object):
         req = urllib2.Request(target, data,
                               {'Content-Type': 'application/json'})
         req.add_header("X-REGISTER-KEY", self.register_key)
-        sleep(randint(1, 30))
         try:
             r = urllib2.urlopen(req)
             if r.code / 200 != 1:
@@ -180,10 +179,13 @@ class SADaemon(Daemon):
 
     def run(self, conf):
         sa = StalkerAgent(conf)
-        notified = False
-        while not notified:
+        sleep(randint(1, 3))
+        while 1:
             notified = sa.notify_master()
-            sleep(30)
+            if notified:
+                break
+            else:
+                sleep(randint(1, 10))
         while 1:
             try:
                 sa.start()

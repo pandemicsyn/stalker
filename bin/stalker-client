@@ -4,7 +4,7 @@ import urllib2
 import os
 import sys
 import optparse
-
+from datetime import datetime
 
 def _requeue(config, cid):
     target = config['url'] + '/checks/id/' + cid + '/next'
@@ -21,6 +21,34 @@ def _requeue(config, cid):
         else:
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
 
+
+def _state_log(config, target_check):
+    host, check = target_check.split(':', 1)
+    endpoint = '/state_log/%s/%s' % (host, check)
+    url = config['url'] + endpoint
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(url, headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        result = json.loads(content)
+        print "## State Log for %s on %s ##" % (check, host)
+        if len(result['state_log']) > 0:
+            for entry in result['state_log']:
+                ts = datetime.utcfromtimestamp(entry['last'])
+                if entry['status']:
+                    state = "UP  "
+                else:
+                    state = "DOWN"
+                print "[%s] %s - %s" % (ts, state, entry['out'])
+        else:
+            print "No history yet..."
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check or check history for %s %s" % (host, check)
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+    
 
 def _remove_check(config, cid, name=None):
     target = config['url'] + '/checks/id/' + cid
@@ -110,6 +138,8 @@ def main():
                     help="Remove all checks for given host or ip")
     args.add_option('--list', '-l', dest='list_host',
                     help="List all checks for given host or ip")
+    args.add_option('--state-log', dest="state_log_target",
+            help="Show the state log for a given target ex: --state-log=hostname:check_name")
     options, arguments = args.parse_args()
 
     conf_file = os.environ.get('stalker-client-conf',
@@ -140,6 +170,8 @@ def main():
 
     if len(sys.argv) == 1:
         options.alerting = True
+    if options.state_log_target:
+        _state_log(config, options.state_log_target)
     if options.recheck_id:
         _requeue(config, options.recheck_id)
     if options.remove_host:

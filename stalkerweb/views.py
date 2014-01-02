@@ -131,13 +131,12 @@ def register():
         mongo.db.checks.remove({'hostname': hid})
         bulk_load = []
         for i in checks:
-            print i
             bulk_load.append({'hostname': hid, 'ip': request.remote_addr,
                               'check': i, 'last': 0, 'next': _rand_start(),
                               'interval': checks[i]['interval'],
                               'follow_up': checks[i]['follow_up'],
                               'pending': False,
-                              'status': True, 'in_maintenance': False,
+                              'status': False, 'in_maintenance': False,
                               'suspended': False, 'out': '',
                               'priority': checks[i].get('priority', 1)})
         mongo.db.checks.insert(bulk_load)
@@ -251,12 +250,13 @@ def checks_by_id(checkid):
 @login_required
 def state_log_by_check(hostname, checkname):
     if request.method == 'GET':
-        checks = [x for x in mongo.db.state_log.find({'hostname': hostname, 'check': checkname})]
-        print 'wtf'
-        print checks
+        try:
+            limit = request.args.get('limit', 10, type=int)
+        except ValueError:
+            abort(400)
+        log = [x for x in mongo.db.state_log.find({'hostname': hostname, 'check': checkname}, limit=limit).sort('last', pymongo.DESCENDING)]
         if checks:
-            print checks
-            return jsonify({'state_log': checks})
+            return jsonify({'state_log': sorted(log, key=lambda k: k['last'])})
         else:
             abort(404)
     else:
@@ -440,7 +440,6 @@ def findhost():
             result.append(i['hostname'])
         else:
             result.append(i['ip'])
-    print result
     return ",".join(result)
 
 
@@ -547,7 +546,7 @@ def help():
     func_list = {}
     for rule in app.url_map.iter_rules():
         if rule.endpoint != 'static':
-            print app.view_functions[rule.endpoint].__globals__
+            #print app.view_functions[rule.endpoint].__globals__
             func_list[rule.rule] = app.view_functions[rule.endpoint].__doc__
     return jsonify(func_list)
 

@@ -44,11 +44,16 @@ class StalkerRunner(object):
         self.db = self.c[db_name]
         self.checks = self.db['checks']
         self.state_log = self.db['state_log']
+        self.notifications = self.db['notifications']
+        self.host_window = int(conf.get('host_flood_window', '1800'))
+        self.host_threshold = int(conf.get('host_flood_threshold', '5'))
+        self.flood_window = int(conf.get('dc_flood_window', '120'))
+        self.flood_threshold = int(conf.get('dc_flood_threshold', '200'))
         self.flap_window = int(conf.get('flap_window', '1200'))
         self.flap_threshold = int(conf.get('flap_threshold', '5'))
         self.alert_threshold = int(conf.get('alert_threshold', '3'))
         self.urlopen_timeout = int(conf.get('urlopen_timeout', '15'))
-        self.notifications = {}
+        self.notify_plugins = {}
         self._load_notification_plugins(conf)
         self.statsd = StatsdEvent(conf, self.logger, 'stalker_runner.')
 
@@ -58,17 +63,17 @@ class StalkerRunner(object):
             from stalker_notifications import Mailgun
             mailgun = Mailgun(
                 conf=conf, logger=self.logger, redis_client=self.rc)
-            self.notifications['mailgun'] = mailgun
+            self.notify_plugins['mailgun'] = mailgun
         if conf.get('pagerduty_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import PagerDuty
             pagerduty = PagerDuty(conf=conf, logger=self.logger,
                                   redis_client=self.rc)
-            self.notifications['pagerduty'] = pagerduty
+            self.notify_plugins['pagerduty'] = pagerduty
         if conf.get('smtplib_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import EmailNotify
             email_notify = EmailNotify(conf=conf, logger=self.logger,
                                        redis_client=self.rc)
-            self.notifications['email_notify'] = email_notify
+            self.notify_plugins['email_notify'] = email_notify
 
     def _get_checks(self, max_count=100, max_time=1, timeout=1):
         """Gather some checks off the Redis queue and batch them up"""
@@ -79,10 +84,10 @@ class StalkerRunner(object):
                 # we've exceeded our max_time return what we've got at
                 # least
                 return checks
-            stat = self.rc.blpop(self.wq, timeout=timeout)
+            c = self.rc.blpop(self.wq, timeout=timeout)
             eventlet.sleep()
-            if stat:
-                checks.append(stat)
+            if c:
+                checks.append(c)
                 self.logger.debug("grabbed check")
             else:
                 if len(checks) > 0:
@@ -103,8 +108,11 @@ class StalkerRunner(object):
 
     def _flap_incr(self, flapid):
         """incr flap counter for a specific check"""
-        self.rc.incr(flapid)
-        self.rc.expire(flapid, self.flap_window)
+        pipe = self.rc.pipeline()
+        pipe.multi()
+        pipe.incr(flapid)
+        pipe.expire(flapid, self.flap_window)
+        pipe.execute()
 
     def _log_state_change(self, check):
         """Log that a state change occurred in the state_log table"""
@@ -118,6 +126,29 @@ class StalkerRunner(object):
         except Exception:
             self.logger.exception('Error writing to state_log')
 
+    def host_ncount(self, hostname):
+        """Get a count of how many outstanding notifications a host has"""
+        return self.notifications.find({'hostname': hostname}).count()
+
+    def host_flood(self, hostname):
+        """Check if a host is flooding"""
+        count = self.notifications.find({"ts": {"$gt": time() - self.host_window},
+                                         "hostname": hostname}).count()
+        if count > self.host_threshold:
+            self.logger.info('Host flood detected. Suppressing alerts for %s' % hostname)
+            return True
+        else:
+            return False
+
+    def global_flood(self):
+        """Check if we're experiencing a global alert flood"""
+        count = self.notifications.find({"ts": {"$gt": time() - self.flood_window}}).count()
+        if count > self.flood_threshold:
+            self.logger.info('Global alert flood detected. Suppressing alerts')
+            return True
+        else:
+            return False
+
     def flapping(self, flapid):
         """Check if a check is flapping"""
         flap_count = int(self.rc.get(flapid) or 0)
@@ -127,53 +158,104 @@ class StalkerRunner(object):
         else:
             return False
 
-    def emit_fail(self, check):
+    def _emit_fail(self, check):
         """Emit a failure event via the notification plugins"""
         self.logger.info('alert %s' % check)
-        for plugin in self.notifications.itervalues():
+        for plugin in self.notify_plugins.itervalues():
             try:
                 plugin.fail(check)
             except Exception:
                 self.logger.exception('Error emitting failure')
 
-    def emit_clear(self, check):
+    def _emit_clear(self, check):
         """Emit a clear event via the notification plugins"""
         self.logger.info('cleared %s' % check)
-        for plugin in self.notifications.itervalues():
+        for plugin in self.notify_plugins.itervalues():
             try:
                 plugin.clear(check)
             except Exception:
                 self.logger.exception('Error emitting clear')
 
-    def state_change(self, check, previous_status):
-        """Handle check result state changes"""
+    def check_failed(self, check):
+        """Perform failure notifications if required"""
+        if not self.notifications.find_one({'hostname': check['hostname'],
+                                            'check': check['check']}):
+            n = {'cid': check['_id'], 'hostname': check['hostname'],
+                 'check': check['check'], 'ts': time(), 'cleared': False}
+            try:
+                q = self.notifications.insert(n)
+            except Exception:
+                self.logger.exception('Error updating notifications table!')
+                return
+            if not self.host_flood(check['hostname']) and not self.global_flood():
+                self._emit_fail(check)
+        else:
+            self.logger.debug('Notification entry already exists!')
+
+    def check_cleared(self, check):
+        """Perform clear notifications if required"""
+        if self.notifications.find_one({'hostname': check['hostname'],
+                                        'check': check['check']}):
+            try:
+                q = self.notifications.remove({'cid': check['_id']})
+            except Exception:
+                self.logger.exception('Error removing notifications entry.')
+            self._emit_clear(check)
+        else:
+            self.logger.debug('No notification entry to clear')
+
+    def emit_host_flood_alert(self, hostname):
+        """Emit a host level flood alert via the notification plugins"""
+        check = {'hostname': hostname, 'check': 'host_alert_flood',
+                 'out': 'Host level alert flood detected!'}
+        for plugin in self.notify_plugins.itervalues():
+            try:
+                plugin.fail(check)
+            except Exception:
+                self.logger.exception('Error emitting failure')
+
+    def emit_flood_alert(self):
+        """Emit a flood notification event via the notification plugins"""
+        check = {'hostname': 'alertflood', 'check': 'dc_alert_flood',
+                 'out': 'DC wide alert flood detected!'}
+        for plugin in self.notify_plugins.itervalues():
+            try:
+                plugin.fail(check)
+            except Exception:
+                self.logger.exception('Error emitting failure')
+
+    def state_has_changed(self, check, previous_status):
+        """Determin if a state has changed, and update state log accordingly"""
         if check['status'] != previous_status:
-            self.logger.info('%s:%s state changed.' % (check['hostname'],
+            self.logger.debug('%s:%s state changed.' % (check['hostname'],
                                                        check['check']))
             self._log_state_change(check)
             state_changed = True
-            self.statsd.counter('.state_change')
+            self.statsd.counter('state_change')
         else:
             self.logger.debug('%s:%s state unchanged.' % (check['hostname'],
                                                           check['check']))
             state_changed = False
-        if check['status'] is True and not check['flapping']:
-            if state_changed:
-                self.emit_clear(check)
-        elif check['status'] is False and check['flapping']:
-            self.logger.info('%s:%s is flapping - skipping notification.' %
-                             (check['hostname'], check['check']))
-        elif check['status'] is True and check['flapping']:
-            self.logger.info('%s:%s is flapping - skipping notification.' %
-                             (check['hostname'], check['check']))
-        elif check['status'] is False and not check['flapping']:
+        return state_changed
+
+    def state_change(self, check, previous_status):
+        """Handle check result state changes"""
+        state_changed = self.state_has_changed(check, previous_status)
+        if check['status'] is True and state_changed is True:
+            self.check_cleared(check)
+        elif check['status'] is False:
+            # we don't check if state_changed to allow for alert escalations
+            # at a later date. In the mean time this means check_failed gets
+            # called everytime a check is run and fails.
             self.logger.info('%s:%s failure # %d' % (check['hostname'],
                                                      check['check'],
                                                      check['fail_count']))
-            if check['fail_count'] >= self.alert_threshold:
-                self.emit_fail(check)
-        else:
-            self.logger.info("Oops, odd state. Shouldn't have got here.")
+            if check['flapping']:
+                self.logger.info('%s:%s is flapping - skipping fail/clear event' %
+                                (check['hostname'], check['check']))
+                #emit_flap notification
+            elif check['fail_count'] >= self.alert_threshold:
+                self.check_failed(check)
 
     def run_check(self, payload):
         """Run a check and process its result"""
@@ -239,7 +321,6 @@ class StalkerRunner(object):
                     self.logger.debug(check_result)
                 except Exception:
                     self.logger.exception('Error running checks')
-
             else:
                 self.logger.debug('No checks, sleeping')
             eventlet.sleep()
