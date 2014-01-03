@@ -5,14 +5,11 @@ import errno
 import atexit
 import logging
 from sys import maxint
-from time import sleep
 from signal import SIGTERM
 from ConfigParser import ConfigParser, RawConfigParser
 
 import eventlet
-from eventlet.green import socket, threading
-
-import time
+from eventlet.green import socket, threading, sleep
 
 # logging doesn't import patched as cleanly as one would like
 from logging.handlers import SysLogHandler, TimedRotatingFileHandler
@@ -119,7 +116,7 @@ def get_basic_auth(user="", key=""):
     return s.encode("base64").rstrip()
 
 
-def get_logger(name, log_path='/var/log/stalker.log', level=logging.DEBUG,
+def get_logger(name, log_path='/var/log/stalker.log', level=logging.INFO,
                count=7, fmt=None):
     logger = logging.getLogger(name)
     handler = TimedRotatingFileHandler(log_path, when='midnight',
@@ -415,7 +412,7 @@ def readconf(conffile, section_name=None, log_name=None, defaults=None,
 #	def __enter__(self):
 #		timeout = self.timeout
 #		while timeout >= 0:
-#			expires = time.time() + self.expires + 1
+#			expires = time() + self.expires + 1
 #			pipe = self.redis.pipeline()
 #			lock_key = self.lock_key()
 #			pipe.watch(lock_key)
@@ -423,7 +420,7 @@ def readconf(conffile, section_name=None, log_name=None, defaults=None,
 #				lock_value = float(self.redis.get(lock_key))
 #			except (ValueError,TypeError):
 #				lock_value = None
-#			if not lock_value or lock_value < time.time():
+#			if not lock_value or lock_value < time():
 #				try:
 #					pipe.multi()
 #					pipe.set(lock_key,expires)
