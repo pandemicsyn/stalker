@@ -45,10 +45,10 @@ class StalkerRunner(object):
         self.checks = self.db['checks']
         self.state_log = self.db['state_log']
         self.notifications = self.db['notifications']
-        self.host_window = int(conf.get('host_flood_window', '1800'))
+        self.host_window = int(conf.get('host_flood_window', '60'))
         self.host_threshold = int(conf.get('host_flood_threshold', '5'))
         self.flood_window = int(conf.get('dc_flood_window', '120'))
-        self.flood_threshold = int(conf.get('dc_flood_threshold', '200'))
+        self.flood_threshold = int(conf.get('dc_flood_threshold', '100'))
         self.flap_window = int(conf.get('flap_window', '1200'))
         self.flap_threshold = int(conf.get('flap_threshold', '5'))
         self.alert_threshold = int(conf.get('alert_threshold', '3'))
