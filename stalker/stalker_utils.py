@@ -9,7 +9,8 @@ from signal import SIGTERM
 from ConfigParser import ConfigParser, RawConfigParser
 
 import eventlet
-from eventlet.green import socket, threading, sleep
+from eventlet import sleep
+from eventlet.green import socket, threading
 
 # logging doesn't import patched as cleanly as one would like
 from logging.handlers import SysLogHandler, TimedRotatingFileHandler
