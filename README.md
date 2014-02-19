@@ -44,7 +44,7 @@ checks or configured hosts. In addition to the UI running on http://stalkerweb:5
 | /findhost | Just used for the type ahead in the UI | GET |
 | /register/ | stalker_agent registration end point |  POST |
 | /hosts/ | All hosts | GET |
-| /hosts/[hostname] |  Config for a specific host | GET |
+| /hosts/[hostname] |  Config for a specific host | GET, DELETE |
 | /checks/ | All checks | GET |
 | /checks/host/[hostname] | checks matching to a specific host or ip | GET |
 | /checks/id/[checkid] | A specific check | GET, DELETE |
