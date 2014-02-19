@@ -50,7 +50,7 @@ def _state_log(config, target_check):
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
 
 def _remove_host(config, pattern):
-    target = config['url'] + '/checks/host/' + pattern
+    target = config['url'] + '/hosts/' + pattern
     headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
     try:
         req = urllib2.Request(target, headers=headers)
@@ -83,16 +83,18 @@ def _remove_check(config, cid, name=None):
 def _remove(config, pattern):
     print "Looking up checks for %s..." % pattern
     host = _get_checks_by_host(config, pattern)
-    print [i['check'] for i in host['checks']]
-    _ok = raw_input('Ok to remove all these checks? [y/n] ').strip().lower()
-    if _ok != 'y':
-        print "Aborting."
-        return
-    else:
-        for check in host['checks']:
-            _remove_check(config, check['_id'], check['check'])
-        print "Removing host..."
-        _remove_host(config, pattern)
+    if host:
+        if 'checks' in host:
+            print [i['check'] for i in host['checks']]
+            _ok = raw_input('Ok to remove all these checks? [y/n] ').strip().lower()
+            if _ok != 'y':
+                print "Aborting."
+                return
+            else:
+                for check in host['checks']:
+                    _remove_check(config, check['_id'], check['check'])
+    print "Removing host..."
+    _remove_host(config, pattern)
 
 
 def _get_checks_by_host(config, pattern):
