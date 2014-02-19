@@ -10,6 +10,7 @@ from random import randint
 from stalkerweb.auth import is_valid_login, login_required, remove_user
 from stalkerweb.stutils import jsonify
 from stalkerweb import app, mongo, rc
+from stalker.stalker_utils import get_logger
 from flask.ext.wtf import Form, Required, TextField, PasswordField, \
     BooleanField
 from werkzeug.contrib.cache import RedisCache
@@ -17,6 +18,10 @@ from werkzeug.contrib.cache import RedisCache
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
 cache = RedisCache(default_timeout=app.config['CACHE_TTL'])
+
+logger = get_logger(app.config['LOG_NAME'],
+                    log_path=app.config['LOG_FILE'],
+                    count=app.config['LOG_COUNT'])
 
 class SignInForm(Form):
     username = TextField(validators=[Required()])
@@ -34,7 +39,7 @@ def _get_local_metrics():
             metrics[k] = int(values[mkeys.index(k)])
         return metrics
     except Exception as err:
-        print err
+        logger.exception('Error gathering metrics')
         return None
 
 
@@ -51,7 +56,7 @@ def _get_remote_checks(clusterid, state):
         res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
         return json.loads(res.read())
     except Exception as err:
-        print "Error while grabbing checks for %s: %s" % (clusterid, err)
+        logger.exception("Error while grabbing checks for %s: %s" % (clusterid, err))
         return None
 
 
@@ -63,7 +68,7 @@ def _get_remote_stats(clusterid):
         res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
         return json.loads(res.read())[clusterid]
     except Exception as err:
-        print "Error while grabbing stats for %s: %s" % (clusterid, err)
+        logger.exception("Error while grabbing stats for %s: %s" % (clusterid, err))
         return None
 
 
@@ -136,13 +141,13 @@ def register():
                               'interval': checks[i]['interval'],
                               'follow_up': checks[i]['follow_up'],
                               'pending': False,
-                              'status': False, 'in_maintenance': False,
+                              'status': None, 'in_maintenance': False,
                               'suspended': False, 'out': '',
                               'priority': checks[i].get('priority', 1)})
         mongo.db.checks.insert(bulk_load)
     except pymongo.errors.DuplicateKeyError as err:
-        print err
-        abort(400)
+        logger.error(err)
+        return jsonify({'status': 'fail', 'error': err}), 400
     return jsonify({'status': 'ok'})
 
 
@@ -190,7 +195,7 @@ def users(username):
 
 
 @app.route("/hosts/", defaults={'host': None})
-@app.route("/hosts/<host>")
+@app.route("/hosts/<host>", methods=['GET', 'DELETE'])
 @login_required
 def hosts(host):
     if not host:
@@ -198,9 +203,20 @@ def hosts(host):
         if q:
             q = {'hosts': q}
     else:
-        q = mongo.db.hosts.find_one({'$or': [{'hostname': host},
-                                             {'ip': host}]},
-                                    fields={'_id': False})
+        if request.method == 'DELETE':
+            try:
+                q = mongo.db.checks.remove({'$or': [{'hostname': host}, {'ip': host}]}, safe=True)
+                q = mongo.db.hosts.remove({'$or': [{'hostname': host}, {'ip': host}]}, safe=True)
+                return jsonify({'success': True})
+            except pymongo.errors.InvalidId:
+                abort(404)
+            except pymongo.errors.OperationFailure:
+                logger.exception('Error removing hosts/checks.')
+                abort(500)
+        else:
+            q = mongo.db.hosts.find_one({'$or': [{'hostname': host},
+                                                 {'ip': host}]},
+                                        fields={'_id': False})
     if q:
         return jsonify(q)
     else:
@@ -241,9 +257,8 @@ def checks_by_id(checkid):
         except pymongo.errors.InvalidId:
             abort(404)
         except pymongo.errors.OperationFailure:
+            logger.exception('Error removing check')
             abort(500)
-    else:
-        abort(400)
 
 
 @app.route('/state_log/<hostname>/<checkname>', methods=['GET'])
@@ -288,7 +303,7 @@ def check_next(checkid):
             else:
                 abort(404)
         except (KeyError, ValueError, pymongo.errors.InvalidId) as err:
-            print err
+            logger.error(err)
             abort(400)
 
 
@@ -554,3 +569,4 @@ def help():
 if __name__ == '__main__':
     debug = True
     app.run(host='0.0.0.0', debug=debug)
+

@@ -1,13 +1,15 @@
 import eventlet
 eventlet.monkey_patch()
 from eventlet.green.socket import getfqdn
-from flask import Flask
 from flask.ext.pymongo import PyMongo
+from flask import Flask
 import redis
 from stalkerweb.stutils import ObjectIDConverter
+from stalker.stalker_utils import get_logger
+
 
 def _init_redis(app):
-    """Initializes Redis client from app config"""
+    """Initializes Redis client from app config."""
 
     app.config.setdefault('REDIS_HOST', 'localhost')
     app.config.setdefault('REDIS_PORT', 6379)
@@ -21,6 +23,7 @@ def _init_redis(app):
 app = Flask(__name__, instance_relative_config=False)
 
 app.url_map.converters['objectid'] = ObjectIDConverter
+
 
 app.config['MONGO_DBNAME'] = 'stalkerweb'
 app.config['LOCAL_CID'] = getfqdn()
@@ -36,9 +39,12 @@ app.config['THEMES'] = ['cosmo', 'cerulean', 'cyborg', 'slate', 'spacelab',
 app.config['CACHE_TTL'] = 10
 app.config['GRAPHITE_ENABLE'] = False
 app.config['GRAPHITE_HOST'] = 'http://localhost/'
-
+app.config['LOG_FILE'] = '/var/log/stalker/stalkerweb.log'
+app.config['LOG_NAME'] = 'stalkerweb'
+app.config['LOG_COUNT'] = 7
 
 app.config.from_envvar('STALKERWEB_CONFIG')
+
 mongo = PyMongo(app)
 rc = _init_redis(app)
 
@@ -48,3 +54,5 @@ for i in app.config:
 print "== END APP CONFIG =="
 
 from stalkerweb import views
+
+

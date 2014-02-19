@@ -48,7 +48,21 @@ def _state_log(config, target_check):
             print "Error. No check or check history for %s %s" % (host, check)
         else:
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
-    
+
+def _remove_host(config, pattern):
+    target = config['url'] + '/hosts/' + pattern
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        req.get_method = lambda: 'DELETE'
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s deleted." % pattern
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No host matching %s" % pattern
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
 
 def _remove_check(config, cid, name=None):
     target = config['url'] + '/checks/id/' + cid
@@ -66,17 +80,21 @@ def _remove_check(config, cid, name=None):
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
 
 
-def _remove_host(config, pattern):
+def _remove(config, pattern):
     print "Looking up checks for %s..." % pattern
     host = _get_checks_by_host(config, pattern)
-    print [i['check'] for i in host['checks']]
-    _ok = raw_input('Ok to remove all these checks? [y/n] ').strip().lower()
-    if _ok != 'y':
-        print "Aborting."
-        return
-    else:
-        for check in host['checks']:
-            _remove_check(config, check['_id'], check['check'])
+    if host:
+        if 'checks' in host:
+            print [i['check'] for i in host['checks']]
+            _ok = raw_input('Ok to remove all these checks? [y/n] ').strip().lower()
+            if _ok != 'y':
+                print "Aborting."
+                return
+            else:
+                for check in host['checks']:
+                    _remove_check(config, check['_id'], check['check'])
+    print "Removing host..."
+    _remove_host(config, pattern)
 
 
 def _get_checks_by_host(config, pattern):
@@ -175,7 +193,7 @@ def main():
     if options.recheck_id:
         _requeue(config, options.recheck_id)
     if options.remove_host:
-        _remove_host(config, options.remove_host)
+        _remove(config, options.remove_host)
     if options.list_host:
         host = _get_checks_by_host(config, options.list_host)
         if host:
