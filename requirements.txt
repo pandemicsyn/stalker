@@ -2,7 +2,7 @@ redis
 Flask
 Flask-pymongo
 Flask-bcrypt
-Flask-WTF
+Flask-WTF==0.8.3
 pymongo
 eventlet
 hiredis

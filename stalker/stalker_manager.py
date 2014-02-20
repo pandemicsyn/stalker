@@ -1,5 +1,5 @@
 import redis
-from random import choice
+from random import randint
 from os.path import exists
 from time import time, sleep
 from pymongo import MongoClient
@@ -26,6 +26,7 @@ class StalkerManager(object):
         self.c = MongoClient(host=mongo_host, port=mongo_port)
         self.db = self.c[db_name]
         self.checks = self.db['checks']
+        self.notifications = self.db['notifications']
         self.scan_interval = int(conf.get('scan_interval', '5'))
         self.pause_file = conf.get('pause_file', '/tmp/.sm-pause')
         self.shuffle_on_start = True
@@ -55,7 +56,7 @@ class StalkerManager(object):
             count = 0
             for i in self.checks.find({'next': {"$lt": time()}}):
                 r = self.checks.update({'_id': i['_id']},
-                                       {"$set": {"next": time() + choice(xrange(600))}})
+                                       {"$set": {"next": time() + randint(1, 600)}})
                 count += 1
             self.logger.info('Reshuffled %d checks on startup.' % count)
 
@@ -130,7 +131,6 @@ class StalkerManager(object):
                 sleep(self.scan_interval)
             except Exception as err:
                 print err
-
 
 class SMDaemon(Daemon):
 

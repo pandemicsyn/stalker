@@ -2,7 +2,7 @@
 
 import eventlet
 from eventlet.green import urllib, urllib2
-from stalker.stalker_utils import get_basic_auth, TRUE_VALUES
+from stalker.stalker_utils import get_basic_auth
 
 smtplib = eventlet.import_patched('smtplib')
 
@@ -28,9 +28,7 @@ class PagerDuty(object):
             crit_service_key = standard_service_key
         self.service_keys = {1: standard_service_key, 2: crit_service_key}
         self.url = conf.get('pagerduty_url', 'https://events.pagerduty.com/generic/2010-04-15/create_event.json')
-        self.host_group = conf.get(
-            'pagerduty_host_group_alerts', 'n').lower() in TRUE_VALUES
-        self.prefix = conf.get('pagerduty_incident_key_prefix')
+        self.prefix = conf.get('pagerduty_incident_key_prefix', "")
 
     def _resolve(self, check, incident_key, priority):
         headers = {'Content-Type': 'application/json'}
@@ -43,7 +41,7 @@ class PagerDuty(object):
                            'details': check})
         try:
             req = urllib2.Request(self.url, data, headers)
-            response = urllib2.urlopen(req)
+            response = urllib2.urlopen(req, timeout=10)
             result = json.loads(response.read())
             response.close()
             if 'status' in result:
@@ -72,7 +70,7 @@ class PagerDuty(object):
                            'details': check})
         try:
             req = urllib2.Request(self.url, data, headers)
-            response = urllib2.urlopen(req)
+            response = urllib2.urlopen(req, timeout=10)
             result = json.loads(response.read())
             response.close()
             if 'status' in result:
@@ -93,48 +91,31 @@ class PagerDuty(object):
 
     def clear(self, check):
         """Send clear"""
-        priority = check.get('priority') or 1
+        priority = check.get('priority', 1)
         if priority == 0:
+            self.logger.info('Alert is priority 0. Skipping notification.')
             return
+        incident_key = "%s%s:%s" % (self.prefix, check['hostname'],
+                                    check['check'])
         check['_id'] = str(check['_id'])
-        if self.host_group and priority != 2:
-            incident_key = check['hostname']
-        else:
-            incident_key = '%s:%s' % (check['hostname'], check['check'])
-        if self.prefix:
-            incident_key = self.prefix + incident_key
-        track_id = 'pgduty:notified:%s' % incident_key
-        notified = self.rc.get(track_id) or 0
-        if notified != 0:
-            ok = self._resolve(check, incident_key, priority)
-            if not ok:
-                # TODO: do backup notifications
-                pass
+        ok = self._resolve(check, incident_key, priority)
+        if not ok:
+            # TODO: cleanup
+            pass
 
     def fail(self, check):
         """Send failure if not already notified"""
-        priority = check.get('priority') or 1
+        priority = check.get('priority', 1)
         if priority == 0:
-            self.logger.debug('Alert is priority 0. Skipping notification.')
+            self.logger.info('Alert is priority 0. Skipping notification.')
             return
+        incident_key = "%s%s:%s" % (self.prefix, check['hostname'],
+                                    check['check'])
         check['_id'] = str(check['_id'])
-        if self.host_group and priority != 2:
-            incident_key = check['hostname']
-        else:
-            incident_key = '%s:%s' % (check['hostname'], check['check'])
-        if self.prefix:
-            incident_key = self.prefix + incident_key
-        track_id = 'pgduty:notified:%s' % incident_key
-        notified = self.rc.get(track_id) or 0
-        if notified == 0:
-            ok = self._trigger(check, incident_key, priority)
-            if ok:
-                self.rc.incr(track_id)
-            else:
-                # TODO: do backup notifications
-                pass
-        else:
-            self.logger.debug('pagerduty already notified.')
+        ok = self._trigger(check, incident_key, priority)
+        if not ok:
+            # TODO: do backup notifications
+            pass
 
 
 class Mailgun(object):
@@ -191,30 +172,21 @@ class Mailgun(object):
         """Send clear"""
         # TODO: better clear notifications
         incident_key = '%s:%s' % (check['hostname'], check['check'])
-        track_id = 'mailgun:notified:%s' % incident_key
-        notified = self.rc.get(track_id) or 0
-        if notified != 0:
-            ok = self._send_email(check)
-            self.logger.info('Sent mailgun clear for %s' % track_id)
-            if not ok:
-                # TODO: do backup notifications
-                pass
+        ok = self._send_email(check)
+        self.logger.info('Sent mailgun clear for %s' % incident_key)
+        if not ok:
+            # TODO: do backup notifications
+            pass
 
     def fail(self, check):
         """Send failure if not already notified"""
         incident_key = '%s:%s' % (check['hostname'], check['check'])
-        track_id = 'mailgun:notified:%s' % incident_key
-        notified = self.rc.get(track_id) or 0
-        if notified == 0:
-            ok = self._send_email(check)
-            if ok:
-                self.logger.info('Sent mailgun alert for %s' % track_id)
-                self.rc.incr(track_id)
-            else:
-                # TODO: do backup notifications
-                pass
+        ok = self._send_email(check)
+        if ok:
+            self.logger.info('Sent mailgun alert for %s' % incident_key)
         else:
-            self.logger.debug('mailgun already notified.')
+            # TODO: do backup notifications
+            pass
 
 
 class EmailNotify(object):
@@ -266,27 +238,18 @@ class EmailNotify(object):
         """Send clear"""
         # TODO: better clear notifications
         incident_key = '%s:%s' % (check['hostname'], check['check'])
-        track_id = 'smtplib:notified:%s' % incident_key
-        notified = self.rc.get(track_id) or 0
-        if notified != 0:
-            ok = self._send_email(check)
-            self.logger.info('Sent email clear for %s' % track_id)
-            if not ok:
-                # TODO: do backup notifications
-                pass
+        ok = self._send_email(check)
+        self.logger.info('Sent email clear for %s' % incident_key)
+        if not ok:
+            # TODO: do backup notifications
+            pass
 
     def fail(self, check):
         """Send failure if not already notified"""
         incident_key = '%s:%s' % (check['hostname'], check['check'])
-        track_id = 'smtplib:notified:%s' % incident_key
-        notified = self.rc.get(track_id) or 0
-        if notified == 0:
-            ok = self._send_email(check)
-            if ok:
-                self.logger.info('Sent email alert for %s' % track_id)
-                self.rc.incr(track_id)
-            else:
-                # TODO: do backup notifications
-                pass
+        ok = self._send_email(check)
+        if ok:
+            self.logger.info('Sent email alert for %s' % incident_key)
         else:
-            self.logger.debug('email already notified.')
+            # TODO: do backup notifications
+            pass

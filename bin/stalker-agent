@@ -2,6 +2,8 @@
 
 import sys
 import optparse
+from time import sleep
+from random import randint 
 from stalker.stalker_utils import readconf
 from stalker.stalker_agent import SADaemon, StalkerAgent
 
@@ -29,7 +31,12 @@ def run_server():
     if options.foreground:
         conf = readconf(options.conf)
         sa = StalkerAgent(conf)
-        sa.notify_master()
+        while 1:
+            notified = sa.notify_master()
+            if notified:
+                break
+            else:
+                sleep(randint(1, 10))
         sa.start()
         sys.exit(0)
 

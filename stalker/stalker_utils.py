@@ -5,12 +5,13 @@ import errno
 import atexit
 import logging
 from sys import maxint
-from time import sleep
 from signal import SIGTERM
 from ConfigParser import ConfigParser, RawConfigParser
 
 import eventlet
+from eventlet import sleep
 from eventlet.green import socket, threading
+
 # logging doesn't import patched as cleanly as one would like
 from logging.handlers import SysLogHandler, TimedRotatingFileHandler
 import logging
@@ -388,3 +389,51 @@ def readconf(conffile, section_name=None, log_name=None, defaults=None,
             conf['log_name'] = log_name
     conf['__file__'] = conffile
     return conf
+
+ 
+#class RedisLockTimeout(BaseException):
+#	pass
+# 
+#class RedisLock(object):
+# 
+#	"""
+#	Implements a distributed lock using Redis.
+#	"""
+# 
+#	def __init__(self, redis, lock_type, key, expires=30, timeout=20):
+#		self.key = key
+#		self.lock_type = lock_type
+#		self.redis = redis
+#		self.timeout = timeout
+#		self.expires = expires
+# 
+#	def lock_key(self):
+#		return "%s:locks:%s" % (self.lock_type,self.key)
+# 
+#	def __enter__(self):
+#		timeout = self.timeout
+#		while timeout >= 0:
+#			expires = time() + self.expires + 1
+#			pipe = self.redis.pipeline()
+#			lock_key = self.lock_key()
+#			pipe.watch(lock_key)
+#			try:
+#				lock_value = float(self.redis.get(lock_key))
+#			except (ValueError,TypeError):
+#				lock_value = None
+#			if not lock_value or lock_value < time():
+#				try:
+#					pipe.multi()
+#					pipe.set(lock_key,expires)
+#					pipe.expire(lock_key,self.expires+1)
+#					pipe.execute()
+#					return expires
+#				except WatchError:
+#					print "Someone tinkered with the lock!"
+#					pass
+#			timeout -= 0.01
+#			eventlet.sleep(0.01)
+#		raise RedisLockTimeout("Timeout while waiting for redis lock")
+# 
+#	def __exit__(self, exc_type, exc_value, traceback):
+#		self.redis.delete(self.lock_key())
