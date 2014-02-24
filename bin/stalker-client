@@ -154,6 +154,8 @@ def main():
                     help="Recheck check with given id")
     args.add_option('--remove', dest='remove_host',
                     help="Remove all checks for given host or ip")
+    args.add_option('--remove-check', dest='remove_check',
+                    help="Remove check with given id")
     args.add_option('--list', '-l', dest='list_host',
                     help="List all checks for given host or ip")
     args.add_option('--state-log', dest="state_log_target",
@@ -192,6 +194,8 @@ def main():
         _state_log(config, options.state_log_target)
     if options.recheck_id:
         _requeue(config, options.recheck_id)
+    if options.remove_check:
+        _remove_check(config, options.remove_check)
     if options.remove_host:
         _remove(config, options.remove_host)
     if options.list_host:
