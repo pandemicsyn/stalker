@@ -5,6 +5,41 @@ import os
 import sys
 import optparse
 from datetime import datetime
+from getpass import getuser
+
+
+def _claim(config, cid):
+    uname = getuser()
+    target = config['url'] + '/checks/id/' + cid + '/owner'
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    data = {'owner': uname}
+    try:
+        req = urllib2.Request(target, json.dumps(data), headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s claimed for %s" % (cid, uname)
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _unclaim(config, cid):
+    target = config['url'] + '/checks/id/' + cid + '/owner'
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        req.get_method = lambda: 'DELETE'
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "claim on %s released." % cid
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
 
 def _requeue(config, cid):
     target = config['url'] + '/checks/id/' + cid + '/next'
@@ -49,6 +84,7 @@ def _state_log(config, target_check):
         else:
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
 
+
 def _remove_host(config, pattern):
     target = config['url'] + '/hosts/' + pattern
     headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
@@ -63,6 +99,7 @@ def _remove_host(config, pattern):
             print "Error. No host matching %s" % pattern
         else:
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
 
 def _remove_check(config, cid, name=None):
     target = config['url'] + '/checks/id/' + cid
@@ -159,7 +196,11 @@ def main():
     args.add_option('--list', '-l', dest='list_host',
                     help="List all checks for given host or ip")
     args.add_option('--state-log', dest="state_log_target",
-            help="Show the state log for a given target ex: --state-log=hostname:check_name")
+                    help="Show the history for target ex: --state-log=hostname:check_name")
+    args.add_option('--claim', '-c', dest="claim_id",
+                    help="Claim a given check id until it clears")
+    args.add_option('--unclaim', '-u', dest="unclaim_id",
+                    help="Release claim on a given check id")
     options, arguments = args.parse_args()
 
     conf_file = os.environ.get('stalker-client-conf',
@@ -198,6 +239,10 @@ def main():
         _remove_check(config, options.remove_check)
     if options.remove_host:
         _remove(config, options.remove_host)
+    if options.claim_id:
+        _claim(config, options.claim_id)
+    if options.unclaim_id:
+        _unclaim(config, options.unclaim_id)
     if options.list_host:
         host = _get_checks_by_host(config, options.list_host)
         if host:
@@ -222,9 +267,9 @@ def main():
                     if clean_out.startswith('<urlopen error [Errno'):
                         failed_hosts.add(i['hostname'])
                     else:
-                        print '(%s) %s on %s is alerting because "%s"' % (i['_id'], i['check'],
-                                                                          i['hostname'],
-                                                                          clean_out)
+                        print '(%s) [%s] %s on %s is alerting because "%s"' \
+                            % (i['_id'], i['owner'], i['check'], i['hostname'],
+                               clean_out)
             print "=== Alerting - unreachable ==="
             print " ".join([x for x in failed_hosts])
     if options.pending:
@@ -245,6 +290,7 @@ def main():
             for i in parsed['suspended']:
                 clean_out = " ".join([x for x in i['out'].split('\n')])
                 print '%s on %s is suspended. last output: "%s"' % (i['check'], i['hostname'], clean_out)
+
 
 if __name__ == '__main__':
     main()

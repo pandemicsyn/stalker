@@ -48,6 +48,7 @@
               <th>flapping</th>
               <th>suspended</th>
               <th>output</th>
+              <th>owner</th>
             </tr>
           </thead>
           <tbody data-bind="foreach: checks">
@@ -60,6 +61,7 @@
               <td><span data-bind="text: flapping"></span></td>
               <td><span data-bind="text: suspended"></span></td>
               <td><span data-bind="text: out"></span></td>
+              <td><span data-bind="text: owner"></span></td>
             </tr>
           </tbody>
         </table>
@@ -105,7 +107,7 @@
                   for (var i in data[clusterid][self.selectedState()]) {
                     check_fields = {"cid": clusterid, "hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null,
                                                                    "last": null, "next": null, "pending": null, "status": null, "flapping": null,
-                                                                   "suspended": null, "priority": null, "out": null}
+                                                                   "suspended": null, "priority": null, "out": null, "owner": null}
                     raw = data[clusterid][self.selectedState()][i]
                     for (i in raw) {
                       if (i in check_fields) {
@@ -131,7 +133,7 @@
                   for (var i in data[self.selectedState()]) {
                     check_fields = {"cid": self.localCid(), "hostname": {"name": null, "url": null}, "check": null, "in_maintenance": null, "interval": null,
                                                                          "last": null, "next": null, "pending": null, "status": null, "flapping": null,
-                                                                         "suspended": null, "priority": null, "out": null}
+                                                                         "suspended": null, "priority": null, "out": null, "owner": null}
                     raw = data[self.selectedState()][i]
                     for (i in raw) {
                       if (i in check_fields) {

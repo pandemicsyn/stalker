@@ -132,6 +132,7 @@ class StalkerManager(object):
             except Exception as err:
                 print err
 
+
 class SMDaemon(Daemon):
 
     def run(self, conf):

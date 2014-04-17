@@ -23,6 +23,7 @@ logger = get_logger(app.config['LOG_NAME'],
                     log_path=app.config['LOG_FILE'],
                     count=app.config['LOG_COUNT'])
 
+
 class SignInForm(Form):
     username = TextField(validators=[Required()])
     password = PasswordField(validators=[Required()])
@@ -56,7 +57,7 @@ def _get_remote_checks(clusterid, state):
         res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
         return json.loads(res.read())
     except Exception as err:
-        logger.exception("Error while grabbing checks for %s: %s" % (clusterid, err))
+        logger.exception("Error grabbing checks for %s: %s" % (clusterid, err))
         return None
 
 
@@ -68,7 +69,7 @@ def _get_remote_stats(clusterid):
         res = urllib2.urlopen(req, timeout=app.config['REMOTE_TIMEOUT'])
         return json.loads(res.read())[clusterid]
     except Exception as err:
-        logger.exception("Error while grabbing stats for %s: %s" % (clusterid, err))
+        logger.exception("Error grabbing stats for %s: %s" % (clusterid, err))
         return None
 
 
@@ -198,6 +199,7 @@ def users(username):
 @app.route("/hosts/<host>", methods=['GET', 'DELETE'])
 @login_required
 def hosts(host):
+    """Delete a given host and all its checks"""
     if not host:
         q = [x for x in mongo.db.hosts.find(fields={'_id': False})]
         if q:
@@ -205,8 +207,10 @@ def hosts(host):
     else:
         if request.method == 'DELETE':
             try:
-                q = mongo.db.checks.remove({'$or': [{'hostname': host}, {'ip': host}]}, safe=True)
-                q = mongo.db.hosts.remove({'$or': [{'hostname': host}, {'ip': host}]}, safe=True)
+                q = mongo.db.checks.remove({'$or': [{'hostname': host},
+                                                    {'ip': host}]}, safe=True)
+                q = mongo.db.hosts.remove({'$or': [{'hostname': host},
+                                                   {'ip': host}]}, safe=True)
                 return jsonify({'success': True})
             except pymongo.errors.InvalidId:
                 abort(404)
@@ -227,6 +231,7 @@ def hosts(host):
 @app.route("/checks/host/<host>")
 @login_required
 def checks(host):
+    """Get all checks for a given hostname or ip"""
     if not host:
         q = [x for x in mongo.db.checks.find()]
     else:
@@ -243,6 +248,7 @@ def checks(host):
 @app.route('/checks/id/<checkid>', methods=['GET', 'DELETE'])
 @login_required
 def checks_by_id(checkid):
+    """Get info for or delete a given check"""
     if request.method == 'GET':
         check = mongo.db.checks.find_one({'_id': ObjectId(checkid)})
         if check:
@@ -264,6 +270,7 @@ def checks_by_id(checkid):
 @app.route('/state_log/<hostname>/<checkname>', methods=['GET'])
 @login_required
 def state_log_by_check(hostname, checkname):
+    """Get check history for a given check on a given host"""
     if request.method == 'GET':
         try:
             limit = request.args.get('limit', 10, type=int)
@@ -277,9 +284,52 @@ def state_log_by_check(hostname, checkname):
     else:
         abort(400)
 
+
+@app.route('/checks/id/<checkid>/owner', methods=['GET', 'POST', 'DELETE'])
+@login_required
+def check_owner(checkid):
+    """Claim or unclaim a given check"""
+    if request.method == 'GET':
+        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
+                                         {'owner': 1})
+        if check:
+            check['_id'] = str(check['_id'])
+            return jsonify({'check': check})
+        else:
+            abort(404)
+    elif request.method == 'POST':
+        if not request.json:
+            abort(400)
+        try:
+            if request.json['owner']:
+                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
+                                           {'$set': {'owner': str(request.json['owner'])}})
+            else:
+                abort(400)
+            if q['n'] != 0:
+                return jsonify({'success': True})
+            else:
+                abort(404)
+        except (KeyError, ValueError, pymongo.errors.InvalidId) as err:
+            logger.error(err)
+            abort(400)
+    elif request.method == 'DELETE':
+        try:
+            q = mongo.db.checks.update({'_id': ObjectId(checkid)},
+                                       {'$set': {'owner': ''}})
+            if q['n'] != 0:
+                return jsonify({'success': True})
+            else:
+                abort(404)
+        except (KeyError, ValueError, pymongo.errors.InvalidId) as err:
+            logger.error(err)
+            abort(400)
+
+
 @app.route('/checks/id/<checkid>/next', methods=['GET', 'POST'])
 @login_required
 def check_next(checkid):
+    """Reschedule a given check"""
     if request.method == 'GET':
         check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
                                          {'next': 1})
@@ -310,6 +360,7 @@ def check_next(checkid):
 @app.route('/checks/id/<checkid>/suspended', methods=['GET', 'POST'])
 @login_required
 def check_suspended(checkid):
+    """Suspend a given check"""
     if request.method == 'GET':
         check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
                                          {'suspended': 1})
@@ -341,6 +392,7 @@ def check_suspended(checkid):
 @app.route('/checks/state/<state>')
 @login_required
 def check_state(state):
+    """List of checks in cluster in a given state [alerting/pending/suspended]"""
     if state == 'alerting':
         q = [x for x in mongo.db.checks.find({'status': False})]
         if q:
@@ -372,12 +424,14 @@ def check_state(state):
 @app.route('/global/clusters')
 @login_required
 def global_clusters():
+    """List of known clusters and their id"""
     return jsonify({'clusters': app.config['GLOBAL_CLUSTERS']})
 
 
 @app.route('/global/<clusterid>/checks/state/<state>')
 @login_required
 def global_check_state(clusterid, state):
+    """Get a list of all checks in provided state for a given cluster"""
     if clusterid not in app.config['GLOBAL_CLUSTERS']:
         abort(400)
     if state in VALID_STATES:
@@ -400,6 +454,7 @@ def global_check_state(clusterid, state):
 @app.route('/stats/<clusterid>')
 @login_required
 def stalker_stats(clusterid):
+    """Obtain stats for this cluster or one with a given clusterid"""
     default = {'qsize': None, 'failing': None, 'flapping': None,
                'suspended': None, 'checks': None, 'pending': None}
     if not clusterid:
@@ -483,12 +538,6 @@ def view_checks():
     return render_template('allchecks.html')
 
 
-@app.route('/view/hosts')
-@login_required
-def view_hosts():
-    return render_template('hosts.html')
-
-
 @app.route('/view/host/', defaults={'hostname': None})
 @app.route('/view/host/<hostname>')
 @login_required
@@ -511,6 +560,7 @@ def view_user(username):
 @app.route('/global/view/states/<state>/')
 @login_required
 def view_global(state):
+    """Global view of provided state [alerting/pending/suspended]"""
     if state:
         if state in VALID_STATES:
             return render_template('globalstates.html', state=state)
@@ -522,12 +572,14 @@ def view_global(state):
 
 @app.route('/signout')
 def signout():
+    """Sign out"""
     session.pop('logged_in', None)
     return render_template('signout.html')
 
 
 @app.route('/signin', methods=["GET", "POST"])
 def signin():
+    """Sign in"""
     form = SignInForm()
     if form.validate_on_submit():
         username = form.username.data.strip()
@@ -554,7 +606,7 @@ def page_not_found(e):
     return render_template('404.html'), 404
 
 
-@app.route('/routes/list', methods = ['GET'])
+@app.route('/routes/list', methods=['GET'])
 @login_required
 def help():
     """Show endpoints"""
@@ -569,4 +621,3 @@ def help():
 if __name__ == '__main__':
     debug = True
     app.run(host='0.0.0.0', debug=debug)
-

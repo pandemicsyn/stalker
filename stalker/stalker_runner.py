@@ -122,7 +122,8 @@ class StalkerRunner(object):
                                    'cid': check['_id'],
                                    'status': check['status'],
                                    'last': check['last'],
-                                   'out': check['out']})
+                                   'out': check['out'],
+                                   'owner': check.get('owner', '')})
         except Exception:
             self.logger.exception('Error writing to state_log')
 
@@ -228,7 +229,7 @@ class StalkerRunner(object):
         """Determin if a state has changed, and update state log accordingly"""
         if check['status'] != previous_status:
             self.logger.debug('%s:%s state changed.' % (check['hostname'],
-                                                       check['check']))
+                                                        check['check']))
             self._log_state_change(check)
             state_changed = True
             self.statsd.counter('state_change')
@@ -279,6 +280,7 @@ class StalkerRunner(object):
                                'last': time(),
                                'out': result[check_name]['out'] +
                                result[check_name]['err'],
+                               'owner': '',
                                'fail_count': 0}}
             self.statsd.counter('checks.passed')
         else:  # check is failing
