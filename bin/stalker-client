@@ -268,8 +268,8 @@ def main():
                         failed_hosts.add(i['hostname'])
                     else:
                         print '(%s) [%s] %s on %s is alerting because "%s"' \
-                            % (i['_id'], i['owner'], i['check'], i['hostname'],
-                               clean_out)
+                            % (i['_id'], i.get('owner'), i['check'],
+                               i['hostname'], clean_out)
             print "=== Alerting - unreachable ==="
             print " ".join([x for x in failed_hosts])
     if options.pending:
