@@ -267,28 +267,10 @@ def checks_by_id(checkid):
             abort(500)
 
 
-@app.route('/state_log/<hostname>/<checkname>', methods=['GET'])
-@login_required
-def state_log_by_check(hostname, checkname):
-    """Get check history for a given check on a given host"""
-    if request.method == 'GET':
-        try:
-            limit = request.args.get('limit', 10, type=int)
-        except ValueError:
-            abort(400)
-        log = [x for x in mongo.db.state_log.find({'hostname': hostname, 'check': checkname}, limit=limit).sort('last', pymongo.DESCENDING)]
-        if checks:
-            return jsonify({'state_log': sorted(log, key=lambda k: k['last'])})
-        else:
-            abort(404)
-    else:
-        abort(400)
-
-
 @app.route('/checks/id/<checkid>/owner', methods=['GET', 'POST', 'DELETE'])
 @login_required
 def check_owner(checkid):
-    """Claim or unclaim a given check"""
+    """claim or unclaim a given check"""
     if request.method == 'GET':
         check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
                                          {'owner': 1})
@@ -301,7 +283,7 @@ def check_owner(checkid):
         if not request.json:
             abort(400)
         try:
-            if request.json['owner']:
+            if request.json.get('owner'):
                 q = mongo.db.checks.update({'_id': ObjectId(checkid)},
                                            {'$set': {'owner': str(request.json['owner'])}})
             else:
@@ -342,7 +324,9 @@ def check_next(checkid):
         if not request.json:
             abort(400)
         try:
-            if request.json['next'] == 'now':
+            if not request.json.get('next'):
+                abort(400)
+            if request.json.get('next') == 'now':
                 q = mongo.db.checks.update({'_id': ObjectId(checkid)},
                                            {'$set': {'next': time() - 1}})
             else:
@@ -373,10 +357,12 @@ def check_suspended(checkid):
         if not request.json:
             abort(400)
         try:
-            if request.json['suspended'] is True:
+            if not request.json.get('suspended'):
+                abort(400)
+            if request.json.get('suspended') is True:
                 q = mongo.db.checks.update({'_id': ObjectId(checkid)},
                                            {'$set': {'suspended': True}})
-            elif request.json['suspended'] is False:
+            elif request.json.get('suspended') is False:
                 q = mongo.db.checks.update({'_id': ObjectId(checkid)},
                                            {'$set': {'suspended': False}})
             else:
@@ -420,6 +406,60 @@ def check_state(state):
     else:
         abort(400)
 
+
+@app.route('/state_log/<hostname>/<checkname>', methods=['GET'])
+@login_required
+def state_log_by_check(hostname, checkname):
+    """Get check history for a given check on a given host"""
+    if request.method == 'GET':
+        try:
+            limit = request.args.get('limit', 10, type=int)
+        except ValueError:
+            abort(400)
+        log = [x for x in mongo.db.state_log.find({'hostname': hostname, 'check': checkname}, limit=limit).sort('last', pymongo.DESCENDING)]
+        if log:
+            return jsonify({'state_log': sorted(log, key=lambda k: k['last'])})
+        else:
+            abort(404)
+    else:
+        abort(400)
+
+
+@app.route('/notes/<hostname>', methods=['GET', 'POST'])
+@login_required
+def list_notes(hostname):
+    """Retrieve a list of notes associated with a host. Or given
+      {'user': 'username', 'note': 'some message'} post a note."""
+    if request.method == 'GET':
+        try:
+            #someday i should probably add offset support here and in the statelog
+            limit = request.args.get('limit', 50, type=int)
+        except ValueError:
+            abort(400)
+        notes = [x for x in mongo.db.notes.find({'hostname': hostname}, limit=limit).sort('ts', pymongo.DESCENDING)]
+        if notes:
+            return jsonify({'notes': sorted(notes, key=lambda k: k['ts'])})
+        else:
+            abort(404)
+    elif request.method == 'POST':
+        if not request.json:
+            abort(400)
+        if not request.json.get("user") or not request.json.get("note"):
+            abort(400)
+        if not mongo.db.hosts.find_one({'$or': [{'hostname': hostname}]}):
+            abort(404)
+        alerting = [x['check'] for x in mongo.db.checks.find({'hostname': hostname, 'status': False})]
+        q = mongo.db.notes.insert({'hostname': hostname,
+                                   'user': request.json.get("user"),
+                                   'note': request.json.get("note"),
+                                   'ts': time(), 'alerting': alerting})
+        if q:
+            return jsonify({'success': True})
+        else:
+            abort(500)
+    else:
+        abort(400)
+    
 
 @app.route('/global/clusters')
 @login_required

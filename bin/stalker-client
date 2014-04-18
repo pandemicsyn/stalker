@@ -4,12 +4,61 @@ import urllib2
 import os
 import sys
 import optparse
+import tempfile
+import subprocess
 from datetime import datetime
 from getpass import getuser
 
 
-def _claim(config, cid):
-    uname = getuser()
+def _postnote(config, host, message, uname=None):
+    if not uname:
+        uname = getuser()
+    target = config['url'] + '/notes/' + host
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    data = {'user': uname, 'note': message}
+    try:
+        req = urllib2.Request(target, json.dumps(data), headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "Posted note to %s for %s" % (host, uname)
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No host with id %s" % host
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _getnotes(config, host, limit=10):
+    endpoint = '/notes/%s' % (host)
+    url = config['url'] + endpoint
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(url, headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        result = json.loads(content)
+        print "## Last %d notes for %s ##" % (limit, host)
+        if len(result['notes']) > 0:
+            for entry in result['notes']:
+                ts = datetime.utcfromtimestamp(entry['ts'])
+                print "####"
+                print "# [%s] On %s by %s " % (host, ts, entry['user'])
+                print "# Active alerts: %s" % " ".join(entry['alerting'])
+                print "####"
+                print entry['note']
+                print
+        else:
+            print "No notes yet..."
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No such host or note history for %s" % (host)
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _claim(config, cid, uname=None):
+    if not uname:
+        uname = getuser()
     target = config['url'] + '/checks/id/' + cid + '/owner'
     headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
     data = {'owner': uname}
@@ -174,6 +223,21 @@ def _request(config, rtype):
     parsed = json.loads(content)
     return content, parsed
 
+def get_message(message):
+    if not message:
+        editor = os.environ.get(
+            'STALKER_EDITOR', os.environ.get('EDITOR', 'vi'))
+        with tempfile.NamedTemporaryFile() as fp:
+            p = subprocess.Popen('%s %s' % (editor, fp.name), shell=True)
+            retval = p.wait()
+            if retval != 0:
+                raise Exception('Error on editor exit code %d' % retval)
+            message = fp.read().strip()
+        if not message:
+            raise Exception('Abort, no message')
+    if message == '-':
+        message = ''
+    return message
 
 def main():
     """stalkerweb cli"""
@@ -201,6 +265,12 @@ def main():
                     help="Claim a given check id until it clears")
     args.add_option('--unclaim', '-u', dest="unclaim_id",
                     help="Release claim on a given check id")
+    args.add_option('--add-note', '-n', dest="host_note",
+                    help="Add a note to a host ex: -n test.domain.com")
+    args.add_option('--list-notes', '-L', dest="list_notes_host",
+                    help="List notes for a host ex: -L test.domain.com")
+    args.add_option('--user', '-U', dest="username",
+                    help="Use this as the username in place of the shell owner")
     options, arguments = args.parse_args()
 
     conf_file = os.environ.get('stalker-client-conf',
@@ -240,13 +310,22 @@ def main():
     if options.remove_host:
         _remove(config, options.remove_host)
     if options.claim_id:
-        _claim(config, options.claim_id)
+        _claim(config, options.claim_id, options.username)
     if options.unclaim_id:
         _unclaim(config, options.unclaim_id)
     if options.list_host:
         host = _get_checks_by_host(config, options.list_host)
         if host:
             print json.dumps(host, sort_keys=False, indent=4)
+    if options.host_note:
+        message = arguments.pop(0) if arguments else ''
+        try:
+            message = get_message(message)
+            _postnote(config, options.host_note, message, options.username)
+        except Exception as err:
+            print err
+    if options.list_notes_host:
+        _getnotes(config, options.list_notes_host, limit=10)
     if options.alerting:
         failed_hosts = set()
         content, parsed = _request(config, 'alerting')
