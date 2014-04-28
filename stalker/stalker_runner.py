@@ -198,7 +198,7 @@ class StalkerRunner(object):
         if self.notifications.find_one({'hostname': check['hostname'],
                                         'check': check['check']}):
             try:
-                q = self.notifications.remove({'cid': check['_id']})
+                q = self.notifications.remove({'hostname': check['hostname'], 'check': check['check']})
             except Exception:
                 self.logger.exception('Error removing notifications entry.')
             self._emit_clear(check)
