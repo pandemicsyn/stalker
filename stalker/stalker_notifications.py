@@ -188,7 +188,7 @@ class GenericHTTP(object):
                     'Failed to trigger http event: %s' % result)
                 return False
         except Exception:
-            self.logger.exception('Error triggering pagerduty event.')
+            self.logger.exception('Error triggering http event.')
             return False
 
     def clear(self, check):
