@@ -82,6 +82,7 @@ def main():
             print stalkerweb.mongo.db.hosts.create_index('hostname',
                                                          unique=True)
             print stalkerweb.mongo.db.hosts.create_index('ip', unique=True)
+
             print stalkerweb.mongo.db.checks.drop()
             print stalkerweb.mongo.db.checks.create_index('alerting')
             print stalkerweb.mongo.db.checks.create_index('pending')
@@ -89,16 +90,19 @@ def main():
             print stalkerweb.mongo.db.checks.create_index('status')
             print stalkerweb.mongo.db.checks.create_index('flapping')
             print stalkerweb.mongo.db.checks.create_index('hostname')
+
             print stalkerweb.mongo.db.users.drop()
             print stalkerweb.mongo.db.users.create_index('username',
                                                          unique=True)
+
             print stalkerweb.mongo.db.state_log.drop()
             print stalkerweb.mongo.db.create_collection('state_log',
                                                         capped=True,
                                                         size=STATE_LOG_SIZE)
             print stalkerweb.mongo.db.state_log.create_index('hostname')
             print stalkerweb.mongo.db.state_log.create_index('check')
-            print stalkerweb.mongo.db.state_log.drop()
+
+            print stalkerweb.mongo.db.notifications.drop()
             print stalkerweb.mongo.db.create_collection('notifications')
             print stalkerweb.mongo.db.notifications.create_index('cid',
                                                                  unique=True)
