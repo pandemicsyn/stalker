@@ -101,8 +101,8 @@ class StalkerManager(object):
         """scan the notifications db for checks older than our expiration
            time and remove them. This will allow them be re-alerted on."""
         try:
-            threshold = time() - self.notificatins_expiration
-            q = self.notifictions.remove({'ts': {"$lt": threshold}})
+            threshold = time() - self.notifications_expiration
+            q = self.notifications.remove({'ts': {"$lt": threshold}})
             self.logger.info("Notification cleanup: %s" % q)
         except Exception:
             self.logger.exception("Error cleaning up notifications table")
