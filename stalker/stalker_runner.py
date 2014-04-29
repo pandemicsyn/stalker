@@ -64,6 +64,11 @@ class StalkerRunner(object):
             mailgun = Mailgun(
                 conf=conf, logger=self.logger, redis_client=self.rc)
             self.notify_plugins['mailgun'] = mailgun
+        if conf.get('http_enable', 'n').lower() in TRUE_VALUES:
+            from stalker_notifications import GenericHTTP
+            generichttp = GenericHTTP(conf=conf, logger=self.logger,
+                                      redis_client=self.rc)
+            self.notify_plugins['generichttp'] = generichttp
         if conf.get('pagerduty_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import PagerDuty
             pagerduty = PagerDuty(conf=conf, logger=self.logger,

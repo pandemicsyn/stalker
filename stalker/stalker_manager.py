@@ -103,7 +103,8 @@ class StalkerManager(object):
         try:
             threshold = time() - self.notifications_expiration
             q = self.notifications.remove({'ts': {"$lt": threshold}})
-            self.logger.info("Notification cleanup: %s" % q)
+            if q.get("n", 0) > 0:
+                self.logger.info("Notification cleanup: %s" % q)
         except Exception:
             self.logger.exception("Error cleaning up notifications table")
 
