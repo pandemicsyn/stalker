@@ -4,6 +4,7 @@ from random import randint
 from eventlet import wsgi, sleep
 from eventlet.green import subprocess, urllib2
 from socket import gethostname
+import fcntl
 import eventlet
 from stalker.stalker_utils import Daemon, FileLikeLogger, readconf, get_logger
 
@@ -164,8 +165,9 @@ class StalkerAgent(object):
 
     def start(self):
         try:
-            wsgi.server(eventlet.wrap_ssl(eventlet.listen((self.listen_addr,
-                                                           self.listen_port)),
+            sock = eventlet.listen((self.listen_addr, self.listen_port))
+            fcntl.fcntl(sock.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+            wsgi.server(eventlet.wrap_ssl(sock,
                                           certfile=self.ssl_crt_path,
                                           keyfile=self.ssl_key_path,
                                           server_side=True),
