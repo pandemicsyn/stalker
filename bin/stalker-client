@@ -1,8 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 import json
 import urllib2
 import os
 import sys
+import time
 import optparse
 import tempfile
 import subprocess
@@ -27,9 +28,31 @@ def _postnote(config, host, message, uname=None):
         else:
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
 
+def _getrecentnotes(config, host, limit=1):
+    endpoint = '/notes/%s?limit=%d' % (host, limit)
+    url = config['url'] + endpoint
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(url, headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        result = json.loads(content)
+        if len(result['notes']) > 0:
+            if result['notes'][0].get('ts', 0) > time.time() - 604800:
+                return True
+            else:
+                return False
+        else:
+            return False
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            return False
+        else:
+            print "Failed note check. Status: %s Msg: %s" % (err.code, err.reason)
+            return False
 
 def _getnotes(config, host, limit=10):
-    endpoint = '/notes/%s' % (host)
+    endpoint = '/notes/%s?limit=%d' % (host, limit)
     url = config['url'] + endpoint
     headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
     try:
@@ -341,13 +364,18 @@ def main():
                     sorted_alerts[i['hostname']] = []
                     sorted_alerts[i['hostname']].append(i)
             for host in sorted_alerts:
+                recent_notes = _getrecentnotes(config, host)
+                if recent_notes:
+                    prefix = "* "
+                else:
+                    prefix = "  "
                 for i in sorted_alerts[host]:
                     clean_out = " ".join([x for x in i['out'].split('\n')])
                     if clean_out.startswith('<urlopen error [Errno'):
                         failed_hosts.add(i['hostname'])
                     else:
-                        print '(%s) [%s] %s on %s is alerting because "%s"' \
-                            % (i['_id'], i.get('owner'), i['check'],
+                        print '%s%s [%s] %s on %s is alerting because "%s"' \
+                            % (prefix, i['_id'], i.get('owner'), i['check'],
                                i['hostname'], clean_out)
             print "=== Alerting - unreachable ==="
             print " ".join([x for x in failed_hosts])
