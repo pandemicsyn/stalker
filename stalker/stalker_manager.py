@@ -28,6 +28,8 @@ class StalkerManager(object):
         self.checks = self.db['checks']
         self.notifications = self.db['notifications']
         self.scan_interval = int(conf.get('scan_interval', '5'))
+        self.notifications_expiration = int(conf.get('notifications_expire',
+                                                     '172800'))
         self.pause_file = conf.get('pause_file', '/tmp/.sm-pause')
         self.shuffle_on_start = True
         self.statsd = StatsdEvent(conf, self.logger, 'stalker_manager.')
@@ -95,6 +97,17 @@ class StalkerManager(object):
             if q['err']:
                 raise Exception('Error clearing pendings')
 
+    def expire_notifications(self):
+        """scan the notifications db for checks older than our expiration
+           time and remove them. This will allow them be re-alerted on."""
+        try:
+            threshold = time() - self.notifications_expiration
+            q = self.notifications.remove({'ts': {"$lt": threshold}})
+            if q.get("n", 0) > 0:
+                self.logger.info("Notification cleanup: %s" % q)
+        except Exception:
+            self.logger.exception("Error cleaning up notifications table")
+
     def scan_checks(self):
         """scan the checks db for checks that need to run
         mark them as pending and then drop'em on the q for the runner."""
@@ -128,9 +141,11 @@ class StalkerManager(object):
         while 1:
             try:
                 self.scan_checks()
+                self.expire_notifications()
                 sleep(self.scan_interval)
             except Exception as err:
                 print err
+
 
 class SMDaemon(Daemon):
 

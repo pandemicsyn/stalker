@@ -50,8 +50,8 @@ class StatsdEvent(object):
     def _send_sampled_event(self):
         """"
         Check to see if statsd is even enabled. If it is track the sample rate
-        and checks to see if this is a request that should be sent to statsd. If
-        statsd support is disabled just return False and perform no ops.
+        and checks to see if this is a request that should be sent to statsd.
+        If statsd support is disabled just return False and perform no ops.
 
         :returns: True if the event should be sent to statsd
         """
@@ -390,26 +390,26 @@ def readconf(conffile, section_name=None, log_name=None, defaults=None,
     conf['__file__'] = conffile
     return conf
 
- 
+
 #class RedisLockTimeout(BaseException):
 #	pass
-# 
+#
 #class RedisLock(object):
-# 
+#
 #	"""
 #	Implements a distributed lock using Redis.
 #	"""
-# 
+#
 #	def __init__(self, redis, lock_type, key, expires=30, timeout=20):
 #		self.key = key
 #		self.lock_type = lock_type
 #		self.redis = redis
 #		self.timeout = timeout
 #		self.expires = expires
-# 
+#
 #	def lock_key(self):
 #		return "%s:locks:%s" % (self.lock_type,self.key)
-# 
+#
 #	def __enter__(self):
 #		timeout = self.timeout
 #		while timeout >= 0:
@@ -434,6 +434,6 @@ def readconf(conffile, section_name=None, log_name=None, defaults=None,
 #			timeout -= 0.01
 #			eventlet.sleep(0.01)
 #		raise RedisLockTimeout("Timeout while waiting for redis lock")
-# 
+#
 #	def __exit__(self, exc_type, exc_value, traceback):
 #		self.redis.delete(self.lock_key())

@@ -118,6 +118,108 @@ class PagerDuty(object):
             pass
 
 
+class GenericHTTP(object):
+
+    """Generic HTTP callback Notifications, following the pagerduty format"""
+
+    def __init__(self, conf, logger, redis_client):
+        self.conf = conf
+        self.logger = logger
+        self.rc = redis_client
+        standard_service_key = conf.get('http_callback_service_key')
+        crit_service_key = standard_service_key
+        self.service_keys = {1: standard_service_key, 2: crit_service_key}
+        self.url = conf.get('http_callback_url', 'http://localhost/')
+        self.prefix = conf.get('http_callback_incident_key_prefix', "")
+
+    def _resolve(self, check, incident_key, priority):
+        headers = {'Content-Type': 'application/json'}
+        data = json.dumps({'service_key': self.service_keys[priority],
+                           'incident_key': incident_key,
+                           'event_type': 'resolve',
+                           'description': '%s on %s is UP' % (check['check'],
+                                                              check[
+                                                                  'hostname']),
+                           'details': check})
+        try:
+            req = urllib2.Request(self.url, data, headers)
+            response = urllib2.urlopen(req, timeout=10)
+            result = json.loads(response.read())
+            response.close()
+            if 'status' in result:
+                if result['status'] == 'success':
+                    self.logger.info('Resolved http event: %s' % result)
+                    return True
+                else:
+                    self.logger.info(
+                        'Failed to resolve http event: %s' % result)
+                    return False
+            else:
+                self.logger.info(
+                    'Failed to resolve http event: %s' % result)
+                return False
+        except Exception:
+            self.logger.exception('Error resolving http event.')
+            return False
+
+    def _trigger(self, check, incident_key, priority):
+        headers = {'Content-Type': 'application/json'}
+        data = json.dumps({'service_key': self.service_keys[priority],
+                           'incident_key': incident_key,
+                           'event_type': 'trigger',
+                           'description': '%s on %s is DOWN' %
+                           (check['check'], check['hostname']),
+                           'details': check})
+        try:
+            req = urllib2.Request(self.url, data, headers)
+            response = urllib2.urlopen(req, timeout=10)
+            result = json.loads(response.read())
+            response.close()
+            if 'status' in result:
+                if result['status'] == 'success':
+                    self.logger.info('Triggered http event: %s' % result)
+                    return True
+                else:
+                    self.logger.info(
+                        'Failed to trigger http event: %s' % result)
+                    return False
+            else:
+                self.logger.info(
+                    'Failed to trigger http event: %s' % result)
+                return False
+        except Exception:
+            self.logger.exception('Error triggering http event.')
+            return False
+
+    def clear(self, check):
+        """Send clear"""
+        priority = check.get('priority', 1)
+        if priority == 0:
+            self.logger.info('Alert is priority 0. Skipping notification.')
+            return
+        incident_key = "%s%s:%s" % (self.prefix, check['hostname'],
+                                    check['check'])
+        check['_id'] = str(check['_id'])
+        ok = self._resolve(check, incident_key, priority)
+        if not ok:
+            # TODO: cleanup
+            pass
+
+    def fail(self, check):
+        """Send failure if not already notified"""
+        priority = check.get('priority', 1)
+        if priority == 0:
+            self.logger.info('Alert is priority 0. Skipping notification.')
+            return
+        incident_key = "%s%s:%s" % (self.prefix, check['hostname'],
+                                    check['check'])
+        check['_id'] = str(check['_id'])
+        ok = self._trigger(check, incident_key, priority)
+        if not ok:
+            # TODO: do backup notifications
+            pass
+
+
 class Mailgun(object):
 
     """Mailgun Notifications"""

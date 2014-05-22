@@ -64,6 +64,11 @@ class StalkerRunner(object):
             mailgun = Mailgun(
                 conf=conf, logger=self.logger, redis_client=self.rc)
             self.notify_plugins['mailgun'] = mailgun
+        if conf.get('http_enable', 'n').lower() in TRUE_VALUES:
+            from stalker_notifications import GenericHTTP
+            generichttp = GenericHTTP(conf=conf, logger=self.logger,
+                                      redis_client=self.rc)
+            self.notify_plugins['generichttp'] = generichttp
         if conf.get('pagerduty_enable', 'n').lower() in TRUE_VALUES:
             from stalker_notifications import PagerDuty
             pagerduty = PagerDuty(conf=conf, logger=self.logger,
@@ -122,7 +127,8 @@ class StalkerRunner(object):
                                    'cid': check['_id'],
                                    'status': check['status'],
                                    'last': check['last'],
-                                   'out': check['out']})
+                                   'out': check['out'],
+                                   'owner': check.get('owner', '')})
         except Exception:
             self.logger.exception('Error writing to state_log')
 
@@ -197,7 +203,7 @@ class StalkerRunner(object):
         if self.notifications.find_one({'hostname': check['hostname'],
                                         'check': check['check']}):
             try:
-                q = self.notifications.remove({'cid': check['_id']})
+                q = self.notifications.remove({'hostname': check['hostname'], 'check': check['check']})
             except Exception:
                 self.logger.exception('Error removing notifications entry.')
             self._emit_clear(check)
@@ -228,7 +234,7 @@ class StalkerRunner(object):
         """Determin if a state has changed, and update state log accordingly"""
         if check['status'] != previous_status:
             self.logger.debug('%s:%s state changed.' % (check['hostname'],
-                                                       check['check']))
+                                                        check['check']))
             self._log_state_change(check)
             state_changed = True
             self.statsd.counter('state_change')
@@ -279,6 +285,7 @@ class StalkerRunner(object):
                                'last': time(),
                                'out': result[check_name]['out'] +
                                result[check_name]['err'],
+                               'owner': '',
                                'fail_count': 0}}
             self.statsd.counter('checks.passed')
         else:  # check is failing

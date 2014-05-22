@@ -70,7 +70,7 @@ It pulls checks out of a Redis list. Then makes the http call for the check to t
  - Mailgun API
  - Email via smtplib
  - Shell Command Execution*
- - HTTP POST*
+ - Generic HTTP POST
 
 ## TODO's
 
