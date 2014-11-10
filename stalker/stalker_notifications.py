@@ -20,13 +20,14 @@ class PagerDuty(object):
         self.conf = conf
         self.logger = logger
         self.rc = redis_client
-        standard_service_key = conf.get('pagerduty_service_key')
-        if not standard_service_key:
-            raise Exception('No pagerduty standard service key in conf')
-        crit_service_key = conf.get('pagerduty_critical_service_key')
-        if not crit_service_key:
-            crit_service_key = standard_service_key
-        self.service_keys = {1: standard_service_key, 2: crit_service_key}
+        self.service_keys = {}
+        for e in conf.keys():
+            if (e.startswith("pagerduty_") and e.endswith("_id")):
+                pagerduty_id = int(conf[e])
+                pagerduty_key = conf[e.replace("_id", "_key")]
+                self.service_keys[pagerduty_id] = pagerduty_key
+        if len(self.service_keys) < 1:
+            raise Exception('No pagerduty service keys found in conf')
         self.url = conf.get('pagerduty_url', 'https://events.pagerduty.com/generic/2010-04-15/create_event.json')
         self.prefix = conf.get('pagerduty_incident_key_prefix', "")
 
