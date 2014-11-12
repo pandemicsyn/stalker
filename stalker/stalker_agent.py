@@ -3,7 +3,7 @@ import json
 from random import randint
 from eventlet import wsgi, sleep
 from eventlet.green import subprocess, urllib2
-from socket import gethostname
+from socket import getfqdn
 import fcntl
 import eventlet
 from stalker.stalker_utils import Daemon, FileLikeLogger, readconf, get_logger
@@ -32,7 +32,8 @@ class StalkerAgent(object):
         self.default_interval = int(conf.get('default_interval', '300'))
         self.default_priority = int(conf.get('default_priority', '1'))
         self.scripts = {}
-        self.hostname = conf.get('hostname', gethostname())
+        hostname_parts = int(conf.get('hostname_parts', '1'))
+        self.hostname = conf.get('hostname', '.'.join(getfqdn().split('.')[:hostname_parts]))
         self.roles = [x.strip() for x in conf.get('roles',
                                                   'server').split(',')]
         if not os.path.exists(self.script_dir):
