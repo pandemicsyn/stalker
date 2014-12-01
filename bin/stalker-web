@@ -56,6 +56,8 @@ def main():
                     help="DEVELOPT: number of workers to use if using gunicorn. Default: 4")
     args.add_option('-G', '--gunicorn-daemon', action="store_true",
                     help="DEVELOPT: launch in gunicorn daemon mode")
+    args.add_option('-P', '--gunicorn-pid',
+                    help="A filename to use for the PID file")
     options, arguments = args.parse_args()
 
     if options.gen_config:
@@ -152,7 +154,9 @@ def main():
         else:
             args_postfix = ""
             if options.gunicorn_daemon:
-                args_postfix = "--daemon"
+                args_postfix += " --daemon"
+            if options.gunicorn_pid:
+                args_postfix += " --pid=%s" % options.gunicorn_pid
             cmd = "gunicorn -k eventlet -w %d stalkerweb:app -b %s:%d %s" % \
                 (options.gunicorn_workers, options.host, options.port,
                  args_postfix)
