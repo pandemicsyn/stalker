@@ -1,0 +1,69 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:       stalker-web
+# Required-Start: $local_fs $syslog
+# Required-Stop:  $local_fs $syslog
+# Default-Start:  2 3 4 5
+# Default-Stop:   0 1 6
+# Short-Description: Gunicorn processes for stalker-web
+### END INIT INFO
+
+USER=www-data
+PIDFILE="/var/run/stalker/stalker-web.pid"
+RETVAL=0
+
+# source function library
+. /lib/lsb/init-functions
+
+start()
+{
+    echo "Starting $NAME."
+    # export PYTHONPATH=$CONFDIR;
+    # cd $CONFDIR/$NAME;
+    su $USER -c "/usr/bin/stalker-web -P $PIDFILE -G >/dev/null"
+    if [ $? -eq 0 ]; then
+        echo "OK"
+    else
+        echo "failed"
+    fi
+}
+
+stop()
+{
+    echo "Stopping $NAME"
+    kill -QUIT `cat $PIDFILE`
+    if [ $? -eq 0 ]; then
+        rm $PIDFILE
+        echo "OK"
+    else
+        echo "failed"
+    fi
+}
+
+reload()
+{
+    echo "Reloading $NAME:"
+    if [ -f $PIDFILE ]; then
+        kill -HUP `cat $PIDFILE` && echo "OK" || echo "failed";
+    fi
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop && start
+        ;;
+    reload)
+        reload
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|restart|reload}"
+        RETVAL=1
+esac
+exit $RETVAL
