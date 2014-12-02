@@ -12,6 +12,7 @@ name = "stalker"
 data_files = [('share/doc/stalker',
                ['README.md',
                 'etc/stalker-agent.conf',
+                'etc/init.d/stalker-agent',
                 'etc/stalker-manager.conf',
                 'etc/init.d/stalker-manager',
                 'etc/stalker-runner.conf',
@@ -21,9 +22,15 @@ data_files = [('share/doc/stalker',
 
 if not os.getenv('VIRTUAL_ENV', False) and argv[1] == 'install':
     data_files.append(('/etc/init.d', ['etc/init.d/stalker-agent']))
+    data_files.append(('/etc/init.d', ['etc/init.d/stalker-manager']))
+    data_files.append(('/etc/init.d', ['etc/init.d/stalker-runner']))
 else:
     data_files.append(('share/doc',
                        ['etc/init.d/stalker-agent']))
+    data_files.append(('share/doc',
+                       ['etc/init.d/stalker-manager']))
+    data_files.append(('share/doc',
+                       ['etc/init.d/stalker-runner']))
 
 setup(
     name=name,
