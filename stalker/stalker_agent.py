@@ -109,7 +109,7 @@ class StalkerAgent(object):
         """Send master our config"""
         target = '%s/register' % (self.master_url)
         data = json.dumps({'hostname': self.hostname, 'checks': self.scripts,
-                           'roles': self.roles})
+                           'roles': self.roles, 'ip': self.listen_addr})
         req = urllib2.Request(target, data,
                               {'Content-Type': 'application/json'})
         req.add_header("X-REGISTER-KEY", self.register_key)
