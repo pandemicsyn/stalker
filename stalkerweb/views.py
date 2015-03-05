@@ -125,11 +125,14 @@ def register():
     hid = request.json['hostname']
     checks = request.json['checks']
     roles = request.json['roles']
+    ip_addr = request.json.get('ip', request.remote_addr)
+    if ip_addr == '':
+        ip_addr = request.remote_addr
     try:
         # TODO: need a unique constraint on hostname
         q = mongo.db.hosts.update({'hostname': hid},
                                   {"$set": {'hostname': hid,
-                                            'ip': request.remote_addr,
+                                            'ip': ip_addr,
                                             'checks': checks, 'roles': roles}},
                                   upsert=True)
         # TODO: Since this is just a POC we'll just blow away ALL of the
@@ -137,7 +140,7 @@ def register():
         mongo.db.checks.remove({'hostname': hid})
         bulk_load = []
         for i in checks:
-            bulk_load.append({'hostname': hid, 'ip': request.remote_addr,
+            bulk_load.append({'hostname': hid, 'ip': ip_addr,
                               'check': i, 'last': 0, 'next': _rand_start(),
                               'interval': checks[i]['interval'],
                               'follow_up': checks[i]['follow_up'],
