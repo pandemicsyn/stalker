@@ -3,8 +3,8 @@ package main
 import (
 	r "github.com/dancannon/gorethink"
 	"github.com/garyburd/redigo/redis"
-	sm "github.com/pandemicsyn/stalker/tempgo/manager"
-	sr "github.com/pandemicsyn/stalker/tempgo/runner"
+	sm "github.com/pandemicsyn/stalker/go/manager"
+	sr "github.com/pandemicsyn/stalker/go/runner"
 	//"github.com/pandemicsyn/stalker/tempgo/stalker"
 	"github.com/spf13/viper"
 	"log"

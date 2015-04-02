@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	r "github.com/dancannon/gorethink"
 	"github.com/garyburd/redigo/redis"
-	"github.com/pandemicsyn/stalker/tempgo/stalker"
+	"github.com/pandemicsyn/stalker/go/stalker"
 	"log"
 	"time"
 )
