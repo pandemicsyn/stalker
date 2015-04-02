@@ -6,6 +6,8 @@ from flask import Flask
 import redis
 from stalkerweb.stutils import ObjectIDConverter
 from stalker.stalker_utils import get_logger
+from flask_rethinkdb import RethinkDB
+
 
 
 def _init_redis(app):
@@ -25,6 +27,10 @@ app = Flask(__name__, instance_relative_config=False)
 app.url_map.converters['objectid'] = ObjectIDConverter
 
 
+app.config["RETHINKDB_HOST"] = "172.17.0.31"
+app.config["RETHINKDB_PORT"] = "28015"
+app.config["RETHINKDB_AUTH"] = "password"
+app.config["RETHINKDB_DB"] = "stalkerweb"
 app.config['MONGO_DBNAME'] = 'stalkerweb'
 app.config['LOCAL_CID'] = getfqdn()
 app.config['MONGO_USERNAME'] = None
@@ -47,6 +53,7 @@ app.config.from_envvar('STALKERWEB_CONFIG')
 
 mongo = PyMongo(app)
 rc = _init_redis(app)
+rdb = RethinkDB(app)
 
 print "== APP CONFIG FOLLOWS =="
 for i in app.config:

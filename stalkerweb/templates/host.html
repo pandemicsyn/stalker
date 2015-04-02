@@ -59,7 +59,7 @@
                   for (var i in data.checks) {
                     check_fields = {"check": null, "in_maintenance": null, "interval": null, "last": null,
                                     "next": null, "pending": null, "status": null, "flapping": null, "suspended": null,
-                                    "out": null, "_id": null, "priority": null, "owner": null}
+                                    "out": null, "id": null, "priority": null, "owner": null}
                     raw = data.checks[i]
                     for (i in raw) {
                       if (i in check_fields) {
@@ -80,7 +80,7 @@
       }
       function requeueCheck(target) {
         $.ajax({type: "POST",
-                url: "/checks/id/" + target['_id'] + "/next",
+                url: "/checks/id/" + target['id'] + "/next",
                 dataType: "json",
                 async: false,
                 data: JSON.stringify({next: 'now'}),
@@ -105,7 +105,7 @@
           new_state = true;
         }
         $.ajax({type: "POST",
-                url: "/checks/id/" + target['_id'] + "/suspended",
+                url: "/checks/id/" + target['id'] + "/suspended",
                 dataType: "json",
                 async: false,
                 data: JSON.stringify({suspended: new_state}),
@@ -125,7 +125,7 @@
       }
       function deleteCheck(target) {
         $.ajax({type: "DELETE",
-                url: "/checks/id/" + target['_id'],
+                url: "/checks/id/" + target['id'],
                 async: false,
                 dataType: "json",
                 success: function(data) {
@@ -148,7 +148,7 @@
                   self.stateLog.removeAll()
                   console.log(data.state_log)
                   for (var i in data.state_log) {
-                    check_fields = {"last": null, "cid": null, "status": null, "out": null, "cid": null, "hostname": null, "_id": null, "check": null}
+                    check_fields = {"last": null, "cid": null, "status": null, "out": null, "cid": null, "hostname": null, "id": null, "check": null}
                     raw = data.state_log[i]
                     for (i in raw) {
                       if (i in check_fields) {

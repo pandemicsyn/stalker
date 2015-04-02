@@ -3,17 +3,18 @@ import eventlet
 eventlet.monkey_patch()
 from eventlet.green import urllib2
 from flask import request, abort, render_template, session, redirect
-import pymongo
 from bson import ObjectId
 from time import time
 from random import randint
 from stalkerweb.auth import is_valid_login, login_required, remove_user
-from stalkerweb.stutils import jsonify
-from stalkerweb import app, mongo, rc
+from stalkerweb.stutils import jsonify, genPrimaryKey64
+from stalkerweb import app, rc, rdb
 from stalker.stalker_utils import get_logger
 from flask.ext.wtf import Form, Required, TextField, PasswordField, \
     BooleanField
 from werkzeug.contrib.cache import RedisCache
+import rethinkdb as r
+from rethinkdb.errors import RqlDriverError, RqlRuntimeError
 
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
@@ -74,8 +75,7 @@ def _get_remote_stats(clusterid):
 
 
 def _get_users_theme(username):
-    q = mongo.db.users.find_one({'username': username},
-                                {'theme': 1, '_id': False})
+    q = r.table("users").filter({"username": username}).pluck({"theme": True}).run(rdb.conn)
     return q.get('theme', 'cerulean')
 
 
@@ -129,18 +129,19 @@ def register():
     if ip_addr == '':
         ip_addr = request.remote_addr
     try:
-        # TODO: need a unique constraint on hostname
-        q = mongo.db.hosts.update({'hostname': hid},
-                                  {"$set": {'hostname': hid,
-                                            'ip': ip_addr,
-                                            'checks': checks, 'roles': roles}},
-                                  upsert=True)
-        # TODO: Since this is just a POC we'll just blow away ALL of the
-        # existing checks for the host and readd them.
-        mongo.db.checks.remove({'hostname': hid})
+        pkey = genPrimaryKey64("%s%s" % (hid, ip_addr))
+        q = r.table("hosts").insert({
+                "id": pkey,
+                "hostname": hid,
+                "ip": ip_addr,
+                "checks": checks,
+                "roles": roles
+            },conflict="update").run(rdb.conn)
+        q = r.table("checks").filter({"hostname": hid}).delete().run(rdb.conn) #we're about to reinstart all so just delete all incase checks got removed
         bulk_load = []
         for i in checks:
-            bulk_load.append({'hostname': hid, 'ip': ip_addr,
+            bulk_load.append({'id': genPrimaryKey64("%s%s%s" % (hid, ip_addr, i)),
+                              'hostname': hid, 'ip': ip_addr,
                               'check': i, 'last': 0, 'next': _rand_start(),
                               'interval': checks[i]['interval'],
                               'follow_up': checks[i]['follow_up'],
@@ -148,10 +149,10 @@ def register():
                               'status': None, 'in_maintenance': False,
                               'suspended': False, 'out': '',
                               'priority': checks[i].get('priority', 1)})
-        mongo.db.checks.insert(bulk_load)
-    except pymongo.errors.DuplicateKeyError as err:
+            q = r.table("checks").insert(bulk_load, conflict="update").run(rdb.conn)
+    except Exception as err:
         logger.error(err)
-        return jsonify({'status': 'fail', 'error': err}), 400
+        return jsonify({'status': 'fail', 'error': str(err)}), 400
     return jsonify({'status': 'ok'})
 
 
@@ -167,9 +168,9 @@ def users(username):
         else:
             abort(400)
     if request.method == 'GET':
-        q = mongo.db.users.find_one({'username': username}, {'hash': False})
+        q = r.table("users").filter({"username": username}).without("hash").run(rdb.conn)
         if q:
-            q['_id'] = str(q['_id'])
+            q['id'] = str(q['id'])
             if 'theme' not in q:
                 q['theme'] = 'cerulean'
             return jsonify(q)
@@ -188,9 +189,8 @@ def users(username):
                 abort(400)
         if 'email' in request.json:
             fields['email'] = request.json['email']
-        q = mongo.db.users.update({'username': username},
-                                  {"$set": fields}, upsert=False)
-        if q:
+        q = r.table("users").filter({"username": username}).update(fields).run(rdb.conn) 
+        if q["replaced"] != 0 :
             if session and 'theme' in fields:
                 session['theme'] = fields['theme']
             return jsonify({'success': True})
@@ -204,26 +204,16 @@ def users(username):
 def hosts(host):
     """Delete a given host and all its checks"""
     if not host:
-        q = [x for x in mongo.db.hosts.find(fields={'_id': False})]
+        q = list(r.table("hosts").without("id").run(rdb.conn))
         if q:
             q = {'hosts': q}
     else:
         if request.method == 'DELETE':
-            try:
-                q = mongo.db.checks.remove({'$or': [{'hostname': host},
-                                                    {'ip': host}]}, safe=True)
-                q = mongo.db.hosts.remove({'$or': [{'hostname': host},
-                                                   {'ip': host}]}, safe=True)
-                return jsonify({'success': True})
-            except pymongo.errors.InvalidId:
-                abort(404)
-            except pymongo.errors.OperationFailure:
-                logger.exception('Error removing hosts/checks.')
-                abort(500)
+            q = r.table("checks").filter((r.row["hostname"] == host) | (r.row["ip"] == host)).delete().run(rdb.conn)
+            q = r.table("hosts").filter((r.row["hostname"] == host) | (r.row["ip"] == host)).delete().run(rdb.conn)
+            return jsonify({'success': True})
         else:
-            q = mongo.db.hosts.find_one({'$or': [{'hostname': host},
-                                                 {'ip': host}]},
-                                        fields={'_id': False})
+            q = list(r.table("hosts").filter((r.row["hostname"] == host) | (r.row["ip"] == host)).without("id").run(rdb.conn))
     if q:
         return jsonify(q)
     else:
@@ -236,13 +226,12 @@ def hosts(host):
 def checks(host):
     """Get all checks for a given hostname or ip"""
     if not host:
-        q = [x for x in mongo.db.checks.find()]
+        q = list(r.table("checks").run(rdb.conn))
     else:
-        q = [x for x in mongo.db.checks.find({'$or': [{'hostname': host},
-                                                      {'ip': host}]})]
+        q = list(r.table("checks").filter((r.row["hostname"] == host) | (r.row["ip"] == host)).run(rdb.conn))
     if q:
         for check in q:
-            check['_id'] = str(check['_id'])
+            check['id'] = str(check['id'])
         return jsonify({'checks': q})
     else:
         abort(404)
@@ -253,21 +242,18 @@ def checks(host):
 def checks_by_id(checkid):
     """Get info for or delete a given check"""
     if request.method == 'GET':
-        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)})
+        check = r.table("checks").get(checkid).run(rdb.conn)
         if check:
-            check['_id'] = str(check['_id'])
+            check['id'] = str(check['id'])
             return jsonify({'check': check})
         else:
             abort(404)
     elif request.method == 'DELETE':
-        try:
-            q = mongo.db.checks.remove({'_id': ObjectId(checkid)}, safe=True)
+        q = r.table("checks").get(checkid).delete().run(rdb.conn)
+        if q["deleted"] == 1:
             return jsonify({'success': True})
-        except pymongo.errors.InvalidId:
-            abort(404)
-        except pymongo.errors.OperationFailure:
-            logger.exception('Error removing check')
-            abort(500)
+        else:
+            return jsonify({'success': False})
 
 
 @app.route('/checks/id/<checkid>/owner', methods=['GET', 'POST', 'DELETE'])
@@ -275,10 +261,9 @@ def checks_by_id(checkid):
 def check_owner(checkid):
     """claim or unclaim a given check"""
     if request.method == 'GET':
-        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
-                                         {'owner': 1})
+        check = r.table("checks").get(checkid).run(rdb.conn)
         if check:
-            check['_id'] = str(check['_id'])
+            check['id'] = str(check['id'])
             return jsonify({'check': check})
         else:
             abort(404)
@@ -287,26 +272,24 @@ def check_owner(checkid):
             abort(400)
         try:
             if request.json.get('owner'):
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
-                                           {'$set': {'owner': str(request.json['owner'])}})
+                q = r.table("checks").get(checkid).update({"owner": str(request.json["owner"])}).run(rdb.conn)
             else:
                 abort(400)
-            if q['n'] != 0:
+            if q["replaced"] != 0:
                 return jsonify({'success': True})
             else:
                 abort(404)
-        except (KeyError, ValueError, pymongo.errors.InvalidId) as err:
+        except Exception as err:
             logger.error(err)
             abort(400)
     elif request.method == 'DELETE':
         try:
-            q = mongo.db.checks.update({'_id': ObjectId(checkid)},
-                                       {'$set': {'owner': ''}})
-            if q['n'] != 0:
+            q = r.table("checks").get(checkid).update({"owner": ""}).run(rdb.conn)
+            if q["replaced"] != 0:
                 return jsonify({'success': True})
             else:
                 abort(404)
-        except (KeyError, ValueError, pymongo.errors.InvalidId) as err:
+        except Exception as err:
             logger.error(err)
             abort(400)
 
@@ -316,10 +299,9 @@ def check_owner(checkid):
 def check_next(checkid):
     """Reschedule a given check"""
     if request.method == 'GET':
-        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
-                                         {'next': 1})
+        check = r.table("checks").get(checkid).run(rdb.conn)
         if check:
-            check['_id'] = str(check['_id'])
+            check['id'] = str(check['id'])
             return jsonify({'check': check})
         else:
             abort(404)
@@ -330,16 +312,14 @@ def check_next(checkid):
             if not request.json.get('next'):
                 abort(400)
             if request.json.get('next') == 'now':
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
-                                           {'$set': {'next': time() - 1}})
+                q = r.table("checks").get(checkid).update({"next": time() - 1}).run(rdb.conn)
             else:
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
-                                           {'$set': {'next': int(request.json['next'])}})
-            if q['n'] != 0:
+                q = r.table("checks").get(checkid).update({"next": int(request.json["next"])}).run(rdb.conn)
+            if q["replaced"] != 0:
                 return jsonify({'success': True})
             else:
                 abort(404)
-        except (KeyError, ValueError, pymongo.errors.InvalidId) as err:
+        except Exception as err:
             logger.error(err)
             abort(400)
 
@@ -349,10 +329,9 @@ def check_next(checkid):
 def check_suspended(checkid):
     """Suspend a given check"""
     if request.method == 'GET':
-        check = mongo.db.checks.find_one({'_id': ObjectId(checkid)},
-                                         {'suspended': 1})
+        check = r.table("checks").get(checkid).run(rdb.conn)
         if check:
-            check['_id'] = str(check['_id'])
+            check['id'] = str(check['id'])
             return jsonify({'check': check})
         else:
             abort(404)
@@ -363,18 +342,17 @@ def check_suspended(checkid):
             if not request.json.get('suspended'):
                 abort(400)
             if request.json.get('suspended') is True:
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
-                                           {'$set': {'suspended': True}})
+                q = r.table("checks").get(checkid).update({"suspended": True}).run(rdb.conn)
             elif request.json.get('suspended') is False:
-                q = mongo.db.checks.update({'_id': ObjectId(checkid)},
-                                           {'$set': {'suspended': False}})
+                q = r.table("checks").get(checkid).update({"suspended": False}).run(rdb.conn)
             else:
                 abort(400)
-            if q['n'] != 0:
+            if q['replaced'] != 0:
                 return jsonify({'success': True})
             else:
                 abort(404)
-        except (KeyError, ValueError, pymongo.errors.InvalidId):
+        except Exception as err:
+            logger.error(err)
             abort(400)
 
 
@@ -383,25 +361,25 @@ def check_suspended(checkid):
 def check_state(state):
     """List of checks in cluster in a given state [alerting/pending/suspended]"""
     if state == 'alerting':
-        q = [x for x in mongo.db.checks.find({'status': False})]
+        q = list(r.table("checks").get_all(True, index="status").run(rdb.conn))
         if q:
             return jsonify({'alerting': q})
         else:
             return jsonify({'alerting': []})
     elif state == 'pending':
-        q = [x for x in mongo.db.checks.find({'pending': True})]
+        q = list(r.table("checks").get_all(True, index="pending").run(rdb.conn))
         if q:
             return jsonify({'pending': q})
         else:
             return jsonify({'pending': []})
     elif state == 'in_maintenance':
-        q = [x for x in mongo.db.checks.find({'in_maintenance': True})]
+        q = list(r.table("checks").get_all(True, index="in_maintenance").run(rdb.conn))
         if q:
             return jsonify({'in_maintenance': q})
         else:
             return jsonify({'in_maintenance': []})
     elif state == 'suspended':
-        q = [x for x in mongo.db.checks.find({'suspended': True})]
+        q = list(r.table("checks").get_all(True, index="suspended").run(rdb.conn))
         if q:
             return jsonify({'suspended': q})
         else:
@@ -419,7 +397,7 @@ def state_log_by_check(hostname, checkname):
             limit = request.args.get('limit', 10, type=int)
         except ValueError:
             abort(400)
-        log = [x for x in mongo.db.state_log.find({'hostname': hostname, 'check': checkname}, limit=limit).sort('last', pymongo.DESCENDING)]
+        log = list(r.table("state_log").filter({"hostname": hostname, "check": checkname}).order_by(r.desc("last")).limit(limit).run(rdb.conn))
         if log:
             return jsonify({'state_log': sorted(log, key=lambda k: k['last'])})
         else:
@@ -439,7 +417,7 @@ def list_notes(hostname):
             limit = request.args.get('limit', 50, type=int)
         except ValueError:
             abort(400)
-        notes = [x for x in mongo.db.notes.find({'hostname': hostname}, limit=limit).sort('ts', pymongo.DESCENDING)]
+        notes = list(r.table("notes").filter({"hostname": hostname}).order_by(r.desc("ts")).limit(limit).run(rdb.conn))
         if notes:
             return jsonify({'notes': sorted(notes, key=lambda k: k['ts'])})
         else:
@@ -449,16 +427,15 @@ def list_notes(hostname):
             abort(400)
         if not request.json.get("user") or not request.json.get("note"):
             abort(400)
-        if not mongo.db.hosts.find_one({'$or': [{'hostname': hostname}]}):
+        if not r.table("hosts").get_all(hostname, index="hostname").run(rdb.conn):
             abort(404)
-        alerting = [x['check'] for x in mongo.db.checks.find({'hostname': hostname, 'status': False})]
-        q = mongo.db.notes.insert({'hostname': hostname,
-                                   'user': request.json.get("user"),
-                                   'note': request.json.get("note"),
-                                   'ts': time(), 'alerting': alerting})
-        if q:
+        alerting = [x["check"] for x in r.table("checks").filter({"h stname": hostname, "status": False}).run(rdb.conn)]
+        q = r.table("notes").insert({'hostname': hostname, 'user': request.json.get("user"),
+                                     'note': request.json.get("note"), 'ts': time(), 'alerting': alerting}).run(rdb.conn)
+        if q["inserted"] == 1:
             return jsonify({'success': True})
         else:
+            logger.error(q)
             abort(500)
     else:
         abort(400)
@@ -545,10 +522,9 @@ def findhost():
     if not request.args.get('q'):
         abort(400)
     result = []
-    for i in mongo.db.hosts.find({'$or': [{'hostname': {'$regex': '^%s' % request.args.get('q')}},
-                                          {'ip': {'$regex': '^%s' % request.args.get('q')}}]},
-                                 fields={'hostname': True, 'ip': True,
-                                         '_id': False}):
+    for i in r.table("hosts").filter(
+            r.row["hostname"].match("^%s" % request.args.get('q')) | r.row["ip"].match("^%s" % request.args.get('q'))
+            ).pluck({"hostname": True, "ip": True}).run(rdb.conn):
         if i['hostname'].startswith(request.args.get('q')):
             result.append(i['hostname'])
         else:
