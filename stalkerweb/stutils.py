@@ -41,5 +41,6 @@ class ObjectIDConverter(BaseConverter):
     def to_url(self, value):
         return urlsafe_b64encode(value.binary)
 
+# make mmh3 compat with go's murmur3 impl
 def genPrimaryKey64(data):
-    return str(mmh3.hash64(data)[0])
+    return "%x" % (mmh3.hash128(data) & 0xFFFFFFFFFFFFFFFF))

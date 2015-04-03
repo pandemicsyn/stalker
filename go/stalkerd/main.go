@@ -1,15 +1,15 @@
 package main
 
 import (
+	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
 	"github.com/garyburd/redigo/redis"
 	sm "github.com/pandemicsyn/stalker/go/manager"
 	sr "github.com/pandemicsyn/stalker/go/runner"
-	//"github.com/pandemicsyn/stalker/tempgo/stalker"
-	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 )
@@ -22,17 +22,40 @@ const (
 
 var cmdArgs []string
 
-var log = logrus.New()
-
 func init() {
 	cmdArgs = os.Args[1:]
-	log.Formatter = new(logrus.JSONFormatter)
+}
+
+func configureLogging() {
+
+	level, err := log.ParseLevel(viper.GetString("log_level"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.SetLevel(level)
+
+	if viper.GetString("log_format") == "text" {
+		log.SetFormatter(&log.TextFormatter{})
+	} else if viper.GetString("log_format") == "json" {
+		log.SetFormatter(&log.JSONFormatter{})
+	} else {
+		log.Println("Error: log_type invalid, defaulting to text")
+		log.SetFormatter(&log.TextFormatter{})
+	}
+
+	switch viper.GetString("log_target") {
+	case "stdout":
+		log.SetOutput(os.Stdout)
+	case "stderr":
+		log.SetOutput(os.Stderr)
+	default:
+		log.Println("Error: log_target invalid, defaulting to Stdout")
+		log.SetOutput(os.Stdout)
+	}
 }
 
 func main() {
 	var err error
-
-	log.Println(cmdArgs)
 
 	viper.SetDefault("redisaddr", "127.0.0.1:6379")
 	viper.SetDefault("rethinkaddr", "127.0.0.1:28015")
@@ -40,6 +63,10 @@ func main() {
 	viper.SetDefault("rethinkdb", "stalkerweb")
 	viper.SetDefault("manager", true)
 	viper.SetDefault("runner", true)
+	viper.SetDefault("log_level", "info")
+	viper.SetDefault("log_format", "text")
+	viper.SetDefault("log_target", "stdout")
+	viper.SetDefault("max_procs", 1)
 
 	viper.SetEnvPrefix("stalker")
 
@@ -49,10 +76,15 @@ func main() {
 	viper.BindEnv("rethinkdb")
 	viper.BindEnv("manager")
 	viper.BindEnv("runner")
+	viper.BindEnv("max_procs")
 
 	viper.SetConfigName("stalkerd")
 	viper.AddConfigPath("/etc/stalker/")
 	viper.ReadInConfig()
+
+	configureLogging()
+
+	runtime.GOMAXPROCS(viper.GetInt("max_procs"))
 
 	log.Println("Starting up")
 
