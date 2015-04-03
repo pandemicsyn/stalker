@@ -62,6 +62,14 @@
 			"Rev": "6807e777504f54ad073ecef66747de158294b639"
 		},
 		{
+			"ImportPath": "github.com/mailgun/mailgun-go",
+			"Rev": "e5be78db035a805f70f1c467663b324a3ac41259"
+		},
+		{
+			"ImportPath": "github.com/mbanzon/simplehttp",
+			"Rev": "6894781bc95b6a11c8b4e4a83eedb06c8a0b4536"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
 			"Rev": "442e588f213303bec7936deba67901f8fc8f18b1"
 		},
@@ -80,6 +88,10 @@
 		{
 			"ImportPath": "github.com/spf13/viper",
 			"Rev": "2e2f3b26431fe06fe321136268380b898f3d855b"
+		},
+		{
+			"ImportPath": "github.com/stvp/pager",
+			"Rev": "87066cd5b36941268f76bee7ad6b5d9bd09a84eb"
 		},
 		{
 			"ImportPath": "github.com/xordataexchange/crypt/backend",
