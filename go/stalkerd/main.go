@@ -6,8 +6,8 @@ import (
 	sm "github.com/pandemicsyn/stalker/go/manager"
 	sr "github.com/pandemicsyn/stalker/go/runner"
 	//"github.com/pandemicsyn/stalker/tempgo/stalker"
+	"github.com/Sirupsen/logrus"
 	"github.com/spf13/viper"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,8 +22,11 @@ const (
 
 var cmdArgs []string
 
+var log = logrus.New()
+
 func init() {
 	cmdArgs = os.Args[1:]
+	log.Formatter = new(logrus.JSONFormatter)
 }
 
 func main() {

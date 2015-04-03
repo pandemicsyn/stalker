@@ -3,10 +3,10 @@ package manager
 import (
 	//"fmt"
 	"encoding/json"
+	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
 	"github.com/garyburd/redigo/redis"
 	"github.com/pandemicsyn/stalker/go/stalker"
-	"log"
 	"sync"
 	"time"
 )
