@@ -11,13 +11,16 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
 type StalkerRunner struct {
-	conf  string
-	rpool *redis.Pool
-	rsess *r.Session
+	conf     string
+	rpool    *redis.Pool
+	rsess    *r.Session
+	stopChan chan bool
+	swg      *sync.WaitGroup
 }
 
 type StalkerRunnerOpts struct {
@@ -58,24 +61,44 @@ func newRedisPool(server string) *redis.Pool {
 }
 
 func New(conf string, opts StalkerRunnerOpts) *StalkerRunner {
-	sr := &StalkerRunner{conf: conf, rpool: newRedisPool(opts.RedisAddr), rsess: opts.RethinkConnection}
+	sr := &StalkerRunner{
+		conf:     conf,
+		rpool:    newRedisPool(opts.RedisAddr),
+		rsess:    opts.RethinkConnection,
+		stopChan: make(chan bool),
+		swg:      &sync.WaitGroup{},
+	}
+	sr.swg.Add(1)
 	return sr
 }
 
 // Start runner loop
 func (sr *StalkerRunner) Start() {
-	//TODO: include shutdown chan
+	defer sr.swg.Done()
 	for {
-		log.Println("Runner...running")
-		time.Sleep(5 * time.Second)
+		select {
+		case <-sr.stopChan:
+			return
+		default:
+		}
 		checks := sr.getChecks(1024, 5)
-		log.Printf("Got checks: %v\n", checks)
+		if len(checks) > 0 {
+			log.Printf("Got checks: %v\n", checks)
+		}
+
 		for _, v := range checks {
 			log.Println("checking", v.Check)
+			sr.swg.Add(1)
 			go sr.runCheck(v)
 		}
 	}
 
+}
+
+func (sr *StalkerRunner) Stop() {
+	close(sr.stopChan)
+	log.Println("runner shutting down")
+	sr.swg.Wait()
 }
 
 func (sr *StalkerRunner) loadNotificationPlugins() {
@@ -86,9 +109,8 @@ func (sr *StalkerRunner) getChecks(maxChecks int, timeout int) []stalker.Stalker
 	checks := make([]stalker.StalkerCheck, 0)
 	expireTime := time.Now().Add(1 * time.Second).Unix()
 	for len(checks) <= maxChecks {
-		//log.Println("trying to grab another", time.Now().Unix(), expireTime, len(checks), maxChecks)
-		//we've got at least 1 check and exceeded our try time
-		if len(checks) > 0 && time.Now().Unix() > expireTime {
+		//we've exceeded our try time
+		if time.Now().Unix() > expireTime {
 			break
 		}
 		rconn := sr.rpool.Get()
@@ -360,6 +382,7 @@ func (sr *StalkerRunner) stateChange(check stalker.StalkerCheck, previousStatus 
 }
 
 func (sr *StalkerRunner) runCheck(check stalker.StalkerCheck) {
+	defer sr.swg.Done()
 	log.Println("run check")
 	var err error
 	name := check.Check

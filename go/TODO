@@ -20,7 +20,7 @@
     - init scripts
     - syslog
     - config file support
-    - start/stop/restart controlling channels
+    - ~~start/stop/restart controlling channels~~
 
 # New Stuff to add (possibly)
 - Manager past due check
@@ -32,10 +32,8 @@
 - start idiomatic go rewrite (i.e. replacing the line by line port)
 
 # Inline
-manager/manager.go:35:	//TODO: need to add controlling channels for shutdown
 manager/manager.go:48:// TODO: y u no actually shuffle!
 manager/manager.go:49:// TODO: optomize Get & Update
-runner/runner.go:67:	//TODO: include shutdown chan
 runner/runner.go:117:// TODO: Need to set deadlines
 runner/runner.go:355:			// TODO: emit flap notifications
 runner/runner.go:372:		// TODO: statsd.counter("checks.error")

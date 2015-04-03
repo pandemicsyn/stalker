@@ -7,6 +7,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/pandemicsyn/stalker/go/stalker"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -16,6 +17,8 @@ type StalkerManager struct {
 	rsess     *r.Session
 	pauseFile string
 	shuffleT  int
+	stopChan  chan bool
+	swg       *sync.WaitGroup
 }
 
 type StalkerManagerOpts struct {
@@ -26,20 +29,40 @@ type StalkerManagerOpts struct {
 }
 
 func New(conf string, opts StalkerManagerOpts) *StalkerManager {
-	sm := &StalkerManager{conf: conf, rconn: opts.RedisConnection, rsess: opts.RethinkSession, pauseFile: opts.PauseFilePath, shuffleT: opts.ShuffleTime}
+	sm := &StalkerManager{
+		conf:      conf,
+		rconn:     opts.RedisConnection,
+		rsess:     opts.RethinkSession,
+		pauseFile: opts.PauseFilePath,
+		shuffleT:  opts.ShuffleTime,
+		stopChan:  make(chan bool),
+		swg:       &sync.WaitGroup{},
+	}
+	sm.swg.Add(1)
 	return sm
 }
 
 // Start the manager loop
 func (sm *StalkerManager) Start() {
-	//TODO: need to add controlling channels for shutdown
+	defer sm.swg.Done()
 	sm.Sanitize(false)
 	sm.startupShuffle()
 	for {
+		select {
+		case <-sm.stopChan:
+			return
+		default:
+		}
 		sm.scanChecks()
 		//sm.expireNotifications()
 		time.Sleep(2 * time.Second)
 	}
+}
+
+func (sm *StalkerManager) Stop() {
+	close(sm.stopChan)
+	log.Println("manager shutting down")
+	sm.swg.Wait()
 }
 
 // randomly reshuffle all checks that need to be done right now and schedul
