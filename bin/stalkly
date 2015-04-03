@@ -54,7 +54,7 @@ class Stalkly(object):
                 except Exception as e:
                     alerting.append({'cluster': cluster,
                                      'check': 'cluster_update',
-                                     'hostname': '*', '_id': cluster,
+                                     'hostname': '*', 'id': cluster,
                                      'out': str(e)})
                     pass
             self.clusters[self.local_cluster] = {'host': self.base_url,
@@ -63,7 +63,7 @@ class Stalkly(object):
             return alerting
         except Exception as e:
             return [{'cluster': 'all', 'check': 'update', 'hostname': '*',
-                     '_id': 'whatevs', 'out': str(e)}]
+                     'id': 'whatevs', 'out': str(e)}]
 
     def alertwindow(self, window, alert):
         newwin = window.subwin(18, 80, 2, 0)
@@ -87,16 +87,16 @@ class Stalkly(object):
             if key in (ord('\n'), curses.KEY_ENTER):
                 if options[selected] == 'Claim':
                     self.json_request(
-                        '/checks/id/' + alert['_id'] + '/owner',
+                        '/checks/id/' + alert['id'] + '/owner',
                         'POST', {'owner': self.username}, alert['cluster'])
                     alert['owner'] = self.username
                 elif options[selected] == 'Remove Claim':
-                    self.json_request('/checks/id/' + alert['_id'] + '/owner',
+                    self.json_request('/checks/id/' + alert['id'] + '/owner',
                                       'DELETE', {}, alert['cluster'])
                     alert['owner'] = ''
                 elif options[selected] == 'Suspend':
                     self.json_request(
-                        '/checks/id/' + alert['_id'] + '/suspended',
+                        '/checks/id/' + alert['id'] + '/suspended',
                         'POST', {'suspended': True}, alert['cluster'])
                 break
             elif key in (ord('k'), curses.KEY_UP):
@@ -116,7 +116,7 @@ class Stalkly(object):
         height, width = stdscr.getmaxyx()
         stdscr.timeout(2000)
         alerting = [{'cluster': '', 'hostname': '', 'check': '', 'out': '',
-                     '_id': -1}] * (height + 2)
+                     'id': -1}] * (height + 2)
         last_update = 0
         selected = 0
         start = 0
@@ -160,15 +160,15 @@ class Stalkly(object):
                     stdscr.chgat(height - 1, 0, width,
                                  curses.color_pair(1) | curses.A_BOLD)
                     stdscr.refresh()
-                    was_selected = alerting[selected]['_id']
+                    was_selected = alerting[selected]['id']
                     selected = 0
-                    was_start = alerting[start]['_id']
+                    was_start = alerting[start]['id']
                     start = 0
                     alerting = self.refresh_alerts()
                     for x, alert in enumerate(alerting):
-                        if alert['_id'] == was_selected:
+                        if alert['id'] == was_selected:
                             selected = x
-                        if alert['_id'] == was_start:
+                        if alert['id'] == was_start:
                             start = x
                     last_update = time.time()
                     break

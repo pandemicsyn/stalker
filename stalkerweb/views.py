@@ -18,7 +18,7 @@ from rethinkdb.errors import RqlDriverError, RqlRuntimeError
 
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
-cache = RedisCache(default_timeout=app.config['CACHE_TTL'])
+cache = RedisCache(host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'], default_timeout=app.config['CACHE_TTL'])
 
 logger = get_logger(app.config['LOG_NAME'],
                     log_path=app.config['LOG_FILE'],
@@ -361,7 +361,7 @@ def check_suspended(checkid):
 def check_state(state):
     """List of checks in cluster in a given state [alerting/pending/suspended]"""
     if state == 'alerting':
-        q = list(r.table("checks").get_all(True, index="status").run(rdb.conn))
+        q = list(r.table("checks").get_all(False, index="status").run(rdb.conn))
         if q:
             return jsonify({'alerting': q})
         else:
@@ -632,7 +632,6 @@ def help():
     func_list = {}
     for rule in app.url_map.iter_rules():
         if rule.endpoint != 'static':
-            #print app.view_functions[rule.endpoint].__globals__
             func_list[rule.rule] = app.view_functions[rule.endpoint].__doc__
     return jsonify(func_list)
 
