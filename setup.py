@@ -55,5 +55,5 @@ setup(
     include_package_data=True,
     zip_safe=False,
     scripts=['bin/stalker-agent', 'bin/stalker-manager', 'bin/stalker-runner',
-             'bin/stalker-web', 'bin/stalker-client', ],
+             'bin/stalker-web', 'bin/stalker-client', 'bin/stalkly', ],
     data_files=data_files)
