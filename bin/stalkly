@@ -25,14 +25,16 @@ class Stalkly(object):
     def json_request(self, address, method='GET', data=None, cluster=None):
         if cluster is None:
             base = self.base_url
+            key = self.api_key
         else:
             base = self.clusters[cluster]['host']
+            key = self.clusters[cluster]['key']
         if data:
             req = urllib2.Request(base + address, data=json.dumps(data))
             req.add_header('Content-Type', 'application/json')
         else:
             req = urllib2.Request(base + address)
-        req.add_header('X-Api-Key', self.api_key)
+        req.add_header('X-Api-Key', key)
         req.get_method = lambda: method
         data = urllib2.urlopen(req).read()
         return json.loads(urllib2.urlopen(req).read())
