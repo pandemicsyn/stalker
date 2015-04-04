@@ -90,10 +90,6 @@
 			"Rev": "2e2f3b26431fe06fe321136268380b898f3d855b"
 		},
 		{
-			"ImportPath": "github.com/stvp/pager",
-			"Rev": "87066cd5b36941268f76bee7ad6b5d9bd09a84eb"
-		},
-		{
 			"ImportPath": "github.com/xordataexchange/crypt/backend",
 			"Comment": "v0.0.2-11-g0499a3c",
 			"Rev": "0499a3c94698e44032bd5fab8ba6f45672406678"
