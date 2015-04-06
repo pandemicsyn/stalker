@@ -75,7 +75,7 @@ def _get_remote_stats(clusterid):
 
 
 def _get_users_theme(username):
-    q = r.table("users").filter({"username": username}).pluck({"theme": True}).run(rdb.conn)
+    q = list(r.table("users").filter({"username": username}).pluck({"theme": True}).run(rdb.conn))[0]
     return q.get('theme', 'cerulean')
 
 
@@ -168,9 +168,8 @@ def users(username):
         else:
             abort(400)
     if request.method == 'GET':
-        q = r.table("users").filter({"username": username}).without("hash").run(rdb.conn)
+        q = list(r.table("users").filter({"username": username}).without("hash").run(rdb.conn))[0]
         if q:
-            q['id'] = str(q['id'])
             if 'theme' not in q:
                 q['theme'] = 'cerulean'
             return jsonify(q)
@@ -215,7 +214,7 @@ def hosts(host):
         else:
             q = list(r.table("hosts").filter((r.row["hostname"] == host) | (r.row["ip"] == host)).without("id").run(rdb.conn))
     if q:
-        return jsonify(q)
+        return jsonify(q[0])
     else:
         abort(404)
 

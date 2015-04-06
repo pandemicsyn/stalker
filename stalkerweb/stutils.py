@@ -43,4 +43,4 @@ class ObjectIDConverter(BaseConverter):
 
 # make mmh3 compat with go's murmur3 impl
 def genPrimaryKey64(data):
-    return "%x" % (mmh3.hash128(data) & 0xFFFFFFFFFFFFFFFF))
+    return "%x" % (mmh3.hash128(data) & 0xFFFFFFFFFFFFFFFF)
