@@ -1,0 +1,42 @@
+max_procs = 4
+log_level = "info"
+log_format = "text"
+log_target = "stdout" 
+
+redisaddr = "127.0.0.1:49155"
+rethinkaddr = "172.17.0.36:28015"
+rethinkkey = "password"
+
+checkkey = "canhazstatus"
+
+#manager
+manager = true
+shuffletime = 30
+mpausefile = "/tmp/.sm-pause"
+
+#runner
+runner = true
+rpausefile = "/tmp/.sm-pause"
+host_window = 60
+host_threshold = 5
+flood_window = 120
+flood_threshold = 100
+flap_window = 1200
+flap_threshold = 5
+alert_threshold = 3
+worker_id = "worker1"
+
+#runner notification plugins
+
+twilio_enable = false
+twilio_sid = "alkdjfladjf"
+twilio_token = "adlfjalkdjf"
+twilio_from = "+12102102100"
+twilio_dest = ["1112223333", "5554443333"]
+
+pagerduty_enable = false
+pagerduty_priority_one_key = "lolkey1"
+# if you don't have multiple service levels just use the same key as for priority1
+pagerduty_priority_two_key = "lolkey2"
+# some string to prefix to incident keys, like a DC identifier
+pagerduty_incident_key_prefix = "SAT1:"

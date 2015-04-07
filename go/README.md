@@ -9,6 +9,5 @@ Initial Line by line port to Go AND migration to rethinkdb
 
     cd stalkerd
     godep go build .
-    STALKER_REDISADDR=127.0.0.1:49154 STALKER_RETHINKADDR=172.17.0.31:28015 ./stalkerd 
-    optionally gomaxprocs it
-
+    mkdir -p /etc/stalker/stalkerd.toml
+    ./stalkerd 

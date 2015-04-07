@@ -20,7 +20,7 @@ def _gen_key(key_len=16, extended=False):
 
 
 def auto_gen_config():
-    defaults = {'MONGO_DBNAME': 'stalkerweb',
+    defaults = {'RETHINK_DBNAME': 'stalker',
                 'REGISTER_KEY': _gen_key(),
                 'API_KEY': _gen_key(),
                 'SECRET_KEY': _gen_key(32, True)}
@@ -77,34 +77,51 @@ def main():
 
     if options.init_db:
         with stalkerweb.app.test_request_context():
-            print r.db("stalkerweb").table_drop("hosts").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table_create("hosts").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("hosts").index_create("hostname").run(stalkerweb.rdb.conn)
+            
+            dbs = r.db_list().run(stalkerweb.rdb.conn)
+            if "stalker" not in dbs:
+                print r.db_create('stalker').run(stalkerweb.rdb.conn)
 
-            print r.db("stalkerweb").table_drop("checks").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table_create("checks").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("checks").index_create("in_maintenance").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("checks").index_create("next").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("checks").index_create("pending").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("checks").index_create("status").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("checks").index_create("suspended").run(stalkerweb.rdb.conn)
+            tables = r.db("stalker").table_list().run(stalkerweb.rdb.conn)
+            if "hosts" in tables:
+                print r.db("stalker").table_drop("hosts").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table_create("hosts").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("hosts").index_create("hostname").run(stalkerweb.rdb.conn)
 
-            print r.db("stalkerweb").table_drop("users").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table_create("users").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("users").index_create("username").run(stalkerweb.rdb.conn)
+            if "checks" in tables:
+                print r.db("stalker").table_drop("checks").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table_create("checks").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("checks").index_create("in_maintenance").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("checks").index_create("next").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("checks").index_create("pending").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("checks").index_create("status").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("checks").index_create("suspended").run(stalkerweb.rdb.conn)
 
-            print r.db("stalkerweb").table_drop("state_log").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table_create("state_log").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("state_log").index_create("hostname").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("state_log").index_create("check").run(stalkerweb.rdb.conn)
+            if "users" in tables:
+                print r.db("stalker").table_drop("users").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table_create("users").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("users").index_create("username").run(stalkerweb.rdb.conn)
 
-            print r.db("stalkerweb").table_drop("notifications").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table_create("notifications").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("notifications").index_create("cid").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("notifications").index_create("hostname").run(stalkerweb.rdb.conn)
-            print r.db("stalkerweb").table("notifications").index_create("check").run(stalkerweb.rdb.conn)
+            if "state_log" in tables:
+                print r.db("stalker").table_drop("state_log").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table_create("state_log").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("state_log").index_create("hostname").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("state_log").index_create("check").run(stalkerweb.rdb.conn)
+
+            if "notifications" in tables:
+                print r.db("stalker").table_drop("notifications").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table_create("notifications").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("notifications").index_create("cid").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("notifications").index_create("hostname").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("notifications").index_create("check").run(stalkerweb.rdb.conn)
+            
+            if "notes" in tables:
+                print r.db("stalker").table_drop("notes").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table_create("notes").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("notes").index_create("cid").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("notes").index_create("hostname").run(stalkerweb.rdb.conn)
+            print r.db("stalker").table("notes").index_create("check").run(stalkerweb.rdb.conn)
         sys.exit()
-
 
     if options.add_user:
         with stalkerweb.app.test_request_context():

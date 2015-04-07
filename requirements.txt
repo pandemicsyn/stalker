@@ -1,9 +1,9 @@
 redis
 Flask
-Flask-pymongo
 Flask-bcrypt
 Flask-WTF==0.8.3
-pymongo
+RethinkDB
 eventlet
 hiredis
 simplejson
+mmh3

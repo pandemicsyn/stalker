@@ -1,7 +1,7 @@
 package stalker
 
 import (
-	"log"
+	log "github.com/Sirupsen/logrus"
 	"math/rand"
 	"os"
 	"time"
@@ -23,6 +23,6 @@ func RandIntInRange(min, max int) int {
 
 func OnlyLogIf(err error) {
 	if err != nil {
-		log.Println(err)
+		log.Errorln(err)
 	}
 }

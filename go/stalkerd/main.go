@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	STALKERDB = "stalker"
 	PauseFile = "/tmp/.sm-pause"
 	ShuffleT  = 30
 	// for backwards compatability with old stalker
@@ -26,30 +27,28 @@ func init() {
 	cmdArgs = os.Args[1:]
 }
 
-func configureLogging() {
-
-	level, err := log.ParseLevel(viper.GetString("log_level"))
+func configureLogging(v *viper.Viper) {
+	level, err := log.ParseLevel(v.GetString("log_level"))
 	if err != nil {
 		log.Fatalln(err)
 	}
 	log.SetLevel(level)
 
-	if viper.GetString("log_format") == "text" {
+	if v.GetString("log_format") == "text" {
 		log.SetFormatter(&log.TextFormatter{})
-	} else if viper.GetString("log_format") == "json" {
+	} else if v.GetString("log_format") == "json" {
 		log.SetFormatter(&log.JSONFormatter{})
 	} else {
-		log.Println("Error: log_type invalid, defaulting to text")
+		log.Errorln("Error: log_type invalid, defaulting to text")
 		log.SetFormatter(&log.TextFormatter{})
 	}
-
-	switch viper.GetString("log_target") {
+	switch v.GetString("log_target") {
 	case "stdout":
 		log.SetOutput(os.Stdout)
 	case "stderr":
 		log.SetOutput(os.Stderr)
 	default:
-		log.Println("Error: log_target invalid, defaulting to Stdout")
+		log.Errorln("Error: log_target invalid, defaulting to Stdout")
 		log.SetOutput(os.Stdout)
 	}
 }
@@ -57,49 +56,52 @@ func configureLogging() {
 func main() {
 	var err error
 
-	viper.SetDefault("redisaddr", "127.0.0.1:6379")
-	viper.SetDefault("rethinkaddr", "127.0.0.1:28015")
-	viper.SetDefault("rethinkkey", "password")
-	viper.SetDefault("rethinkdb", "stalkerweb")
-	viper.SetDefault("manager", true)
-	viper.SetDefault("runner", true)
-	viper.SetDefault("log_level", "info")
-	viper.SetDefault("log_format", "text")
-	viper.SetDefault("log_target", "stdout")
-	viper.SetDefault("max_procs", 1)
+	v := viper.New()
 
-	viper.SetEnvPrefix("stalker")
+	v.SetDefault("redisaddr", "127.0.0.1:6379")
+	v.SetDefault("rethinkaddr", "127.0.0.1:28015")
+	v.SetDefault("rethinkkey", "password")
+	v.SetDefault("rethinkdb", STALKERDB)
+	v.SetDefault("manager", true)
+	v.SetDefault("runner", true)
+	v.SetDefault("log_level", "info")
+	v.SetDefault("log_format", "text")
+	v.SetDefault("log_target", "stdout")
+	v.SetDefault("max_procs", 1)
 
-	viper.BindEnv("redisaddr")
-	viper.BindEnv("rethinkaddr")
-	viper.BindEnv("rethinkkey")
-	viper.BindEnv("rethinkdb")
-	viper.BindEnv("manager")
-	viper.BindEnv("runner")
-	viper.BindEnv("max_procs")
+	v.SetEnvPrefix("stalker")
 
-	viper.SetConfigName("stalkerd")
-	viper.AddConfigPath("/etc/stalker/")
-	viper.ReadInConfig()
+	v.BindEnv("redisaddr")
+	v.BindEnv("rethinkaddr")
+	v.BindEnv("rethinkkey")
+	v.BindEnv("rethinkdb")
+	v.BindEnv("manager")
+	v.BindEnv("runner")
+	v.BindEnv("max_procs")
 
-	configureLogging()
+	v.SetConfigName("stalkerd")
+	v.AddConfigPath("/etc/stalker/")
+	v.ReadInConfig()
 
-	runtime.GOMAXPROCS(viper.GetInt("max_procs"))
+	configureLogging(v)
 
-	log.Println("Starting up")
+	runtime.GOMAXPROCS(v.GetInt("max_procs"))
+
+	log.Warningln("stalkerd starting up")
 
 	var manager *sm.StalkerManager
-	if viper.GetBool("manager") {
-		log.Println("starting manager")
+	if v.GetBool("manager") {
+		log.Warningln("starting manager")
 		managerConf := sm.StalkerManagerOpts{PauseFilePath: PauseFile, ShuffleTime: ShuffleT}
-		managerConf.RedisConnection, err = redis.Dial("tcp", viper.GetString("redisaddr"))
+		managerConf.RedisConnection, err = redis.Dial("tcp", v.GetString("redisaddr"))
 		if err != nil {
 			log.Panic(err)
 		}
+		managerConf.ScanInterval = 2
 		managerConf.RethinkSession, err = r.Connect(r.ConnectOpts{
-			Address:  viper.GetString("rethinkaddr"),
-			Database: viper.GetString("rethinkdb"),
-			AuthKey:  viper.GetString("rethinkkey"),
+			Address:  v.GetString("rethinkaddr"),
+			Database: v.GetString("rethinkdb"),
+			AuthKey:  v.GetString("rethinkkey"),
 			MaxIdle:  10,
 			MaxOpen:  50,
 			Timeout:  5 * time.Second,
@@ -112,14 +114,15 @@ func main() {
 	}
 
 	var runner *sr.StalkerRunner
-	if viper.GetBool("runner") {
-		log.Println("starting runner")
+	if v.GetBool("runner") {
+		log.Warningln("starting runner")
 		runnerConf := sr.StalkerRunnerOpts{}
-		runnerConf.RedisAddr = viper.GetString("redisaddr")
+		runnerConf.RedisAddr = v.GetString("redisaddr")
+		runnerConf.ViperConf = v
 		runnerConf.RethinkConnection, err = r.Connect(r.ConnectOpts{
-			Address:  viper.GetString("rethinkaddr"),
-			Database: viper.GetString("rethinkdb"),
-			AuthKey:  viper.GetString("rethinkkey"),
+			Address:  v.GetString("rethinkaddr"),
+			Database: v.GetString("rethinkdb"),
+			AuthKey:  v.GetString("rethinkkey"),
 			MaxIdle:  10,
 			MaxOpen:  50,
 			Timeout:  5 * time.Second,
@@ -134,7 +137,12 @@ func main() {
 
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-	log.Println(<-ch)
-	manager.Stop()
-	runner.Stop()
+	log.Debugln(<-ch)
+	if v.GetBool("manager") {
+		manager.Stop()
+	}
+	if v.GetBool("runner") {
+		runner.Stop()
+	}
+
 }

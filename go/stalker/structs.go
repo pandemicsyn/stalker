@@ -33,7 +33,7 @@ type StalkerCheck struct {
 	Pending       bool   `json:"pending" gorethink:"pending"`
 	Owner         string `json:"owner,omitempty" gorethink:"owner,omitempty"`
 	FailCount     int    `json:"fail_count,omitempty" gorethink:"fail_count,omitempty"`
-	Flapping      bool   `json:"flapping,omitempty" gorethink:"flapping,omitempty"`
+	Flapping      bool   `json:"flapping,omitempty" gorethink:"flapping"`
 }
 
 type StateLogEntry struct {

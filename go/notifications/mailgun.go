@@ -1,4 +1,4 @@
-package MailgunNotification
+package notifications
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ type MailgunNotification struct {
 	FromAddr  string
 }
 
-func New(domain, apiuser, apikey, recipient, fromaddr string) *MailgunNotification {
+func NewMailgunNotification(domain, apiuser, apikey, recipient, fromaddr string) *MailgunNotification {
 	return &MailgunNotification{domain, apiuser, apikey, recipient, fromaddr}
 }
 
@@ -41,20 +41,20 @@ func (mn *MailgunNotification) Fail(check stalker.StalkerCheck) {
 	incidentKey := fmt.Sprintf("%s:%s", check.Hostname, check.Check)
 	id, err := mn.genMessage(check)
 	if err != nil {
-		log.Println("Error generating alert via mailgun:", err.Error(), id)
+		log.Errorln("Error generating alert via mailgun:", err.Error(), id)
 		// TODO: trigger fallback notifications
 		return
 	}
-	log.Println("Sent mailgun alert for:", incidentKey)
+	log.Infoln("Sent mailgun alert for:", incidentKey)
 }
 
 func (mn *MailgunNotification) Clear(check stalker.StalkerCheck) {
 	incidentKey := fmt.Sprintf("%s:%s", check.Hostname, check.Check)
 	id, err := mn.genMessage(check)
 	if err != nil {
-		log.Println("Error generating clear via mailgun:", err.Error(), id)
+		log.Errorln("Error generating clear via mailgun:", err.Error(), id)
 		// TODO: trigger fallback notifications
 		return
 	}
-	log.Println("Sent mailgun clear for:", incidentKey)
+	log.Infoln("Sent mailgun clear for:", incidentKey)
 }
