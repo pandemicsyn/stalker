@@ -13,17 +13,26 @@ checkkey = "canhazstatus"
 manager = true
 shuffletime = 30
 mpausefile = "/tmp/.sm-pause"
+# expire alerts after 2 days and 
+notifications_expiration = 172800
 
 #runner
 runner = true
 rpausefile = "/tmp/.sm-pause"
-host_window = 60
-host_threshold = 5
-flood_window = 120
-flood_threshold = 100
+
+# how many times an alert has to fail in a row before we emit a notification for it
+alert_threshold = 3
+# if a check flaps 5 or more times in 1200 seconds consider it flapping and suppress additional notifications
 flap_window = 1200
 flap_threshold = 5
-alert_threshold = 3
+# if a host has 5 or more alerts in a 60 second window considering it a host flood and suppress additional notifications
+host_window = 60
+host_threshold = 5
+# if we have more than 100 alerts in a 120 second window consider it a global flood and suppress additional notifications
+flood_window = 120
+flood_threshold = 100
+
+
 worker_id = "worker1"
 
 #runner notification plugins

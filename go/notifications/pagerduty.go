@@ -85,7 +85,7 @@ func (pn *PagerDutyNotification) Fail(check stalker.StalkerCheck) {
 			// TODO: do fallback notifications
 			return
 		}
-		log.Infoln("Triggerd pagerduty event:", i)
+		log.Infoln("Triggered pagerduty event:", i)
 	case 2:
 		i, err := pn.sendEvent(pn.PriTwoServiceKey, TRIGGER, fmt.Sprintf("%s on %s is DOWN", check.Check, check.Hostname), incidentKey, check)
 		if err != nil {

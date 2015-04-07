@@ -16,39 +16,38 @@ const (
 )
 
 type StalkerManager struct {
-	rconn        redis.Conn
-	rsess        *r.Session
-	pauseFile    string
-	shuffleT     int
-	scanInterval time.Duration
-	stopChan     chan bool
-	swg          *sync.WaitGroup
+	rconn                  redis.Conn
+	rsess                  *r.Session
+	pauseFile              string
+	shuffleT               int
+	scanInterval           time.Duration
+	notificationExpiration int64
+	stopChan               chan bool
+	swg                    *sync.WaitGroup
 }
 
 type StalkerManagerOpts struct {
-	RedisConnection redis.Conn
-	RethinkSession  *r.Session
-	PauseFilePath   string
-	ShuffleTime     int
-	ScanInterval    int
+	RedisConnection        redis.Conn
+	RethinkSession         *r.Session
+	PauseFilePath          string
+	ShuffleTime            int
+	ScanInterval           int
+	NotificationExpiration int
 }
 
 func New(conf string, opts StalkerManagerOpts) *StalkerManager {
 	sm := &StalkerManager{
-		rconn:        opts.RedisConnection,
-		rsess:        opts.RethinkSession,
-		pauseFile:    opts.PauseFilePath,
-		shuffleT:     opts.ShuffleTime,
-		scanInterval: time.Duration(opts.ScanInterval) * time.Second,
-		stopChan:     make(chan bool),
-		swg:          &sync.WaitGroup{},
+		rconn:                  opts.RedisConnection,
+		rsess:                  opts.RethinkSession,
+		pauseFile:              opts.PauseFilePath,
+		shuffleT:               opts.ShuffleTime,
+		scanInterval:           time.Duration(opts.ScanInterval) * time.Second,
+		notificationExpiration: int64(opts.NotificationExpiration),
+		stopChan:               make(chan bool),
+		swg:                    &sync.WaitGroup{},
 	}
 	sm.swg.Add(1)
 	return sm
-}
-
-func (sm *StalkerManager) loadConfig() {
-
 }
 
 // Start the manager loop
@@ -63,7 +62,7 @@ func (sm *StalkerManager) Start() {
 		default:
 		}
 		sm.scanChecks()
-		//sm.expireNotifications()
+		sm.expireNotifications()
 		time.Sleep(sm.scanInterval)
 	}
 }
@@ -150,6 +149,10 @@ func (sm *StalkerManager) Sanitize(flushQueued bool) {
 // scan the notifications db for checks older than our expiration time and remove them. This will allow them be re-alerted on.
 func (sm *StalkerManager) expireNotifications() {
 	log.Debugln("expire notifications")
+	_, err := r.Db(STALKERDB).Table("notifications").Filter(r.Row.Field("ts").Lt(time.Now().Unix() - sm.notificationExpiration)).Delete().Run(sm.rsess)
+	if err != nil {
+		log.Errorln("Error deleting expired notifications:", err.Error())
+	}
 }
 
 // scan the checks db for checks that need to run

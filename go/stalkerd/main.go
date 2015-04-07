@@ -58,6 +58,7 @@ func main() {
 
 	v := viper.New()
 
+	//TODO: push config opts to sub packages like in runner.go
 	v.SetDefault("redisaddr", "127.0.0.1:6379")
 	v.SetDefault("rethinkaddr", "127.0.0.1:28015")
 	v.SetDefault("rethinkkey", "password")
@@ -68,6 +69,7 @@ func main() {
 	v.SetDefault("log_format", "text")
 	v.SetDefault("log_target", "stdout")
 	v.SetDefault("max_procs", 1)
+	v.SetDefault("notifications_expiration", 172800)
 
 	v.SetEnvPrefix("stalker")
 
@@ -84,7 +86,6 @@ func main() {
 	v.ReadInConfig()
 
 	configureLogging(v)
-
 	runtime.GOMAXPROCS(v.GetInt("max_procs"))
 
 	log.Warningln("stalkerd starting up")
@@ -92,7 +93,7 @@ func main() {
 	var manager *sm.StalkerManager
 	if v.GetBool("manager") {
 		log.Warningln("starting manager")
-		managerConf := sm.StalkerManagerOpts{PauseFilePath: PauseFile, ShuffleTime: ShuffleT}
+		managerConf := sm.StalkerManagerOpts{PauseFilePath: PauseFile, ShuffleTime: ShuffleT, NotificationExpiration: v.GetInt("notifications_expiration")}
 		managerConf.RedisConnection, err = redis.Dial("tcp", v.GetString("redisaddr"))
 		if err != nil {
 			log.Panic(err)
