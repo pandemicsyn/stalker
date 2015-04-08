@@ -4,12 +4,10 @@ Stalker Monitoring System - PoC
 Components:
  
  - stalker_agent - Runs on the clients, registers the client with the master, executes local checks.
- - stalkerweb - Client registration end point and Web UI
- - stalker_manager - Just parses the master db and puts work on the queue for the runners.
- - stalker_runner - Reads work queue, hits clients stalker_agent to run checks, schedules checks next run, takes care of notifications.
- - MongoDB (its what I had installed...could be anything else). Just stores check states and host config info.
+ - stalkerweb - Client registration end point and API server
+ - stalkerd - backend server that actually manages checks/notification/alerting etc
+ - RethinkDB - central db for storing host info, checks, notifications, and state log
  - Redis - Could do without now, but handy if we run multiple stalker_runners down the road
-
 
 ## stalker_agent.py
 
@@ -56,22 +54,27 @@ checks or configured hosts. In addition to the UI running on http://stalkerweb:5
 | /user/[username] | List/Modify/Delete a user | GET, POST, DELETE |
 | /routes/list | Get a list of all available flask routes | GET |
 
-## stalker_manager
+## stalkerd
 
-stalker-manager is charge of scheduling checks with runners. At the moment it really just checks the db for checks that need to be run and drop's them on a Redis queue.
+Stalkerd is the daemon that runs the whole thing. Internally it actually consists of 2 components. 
 
-## stalker_runner
+The manager portion is in charge of scheduling checks. It's constantly scanning the db for checks that need to be run and drop's them on a Redis queue. It also does things like make sure that the db is in consistent state and shuffles checks at start to make sure things are appropriately staggered upon restart.
 
-It pulls checks out of a Redis list. Then makes the http call for the check to the agent. It parses the result and updates the database accordingly (i.e. marking a check as failed, setting the next run time, etc). It also does basic flap detection, and handles notifications using any enabled notification plugins.
+The runner portion pulls checks out of the Redis list. Then it makes the http call for the check to the agent. It parses the result and updates the database accordingly (i.e. marking a check as failed, setting the next run time, etc). It also handles basic flap detection, host and global level flood detection , and handles notifications using any enabled notification plugins.
 
 ## Notification Plugins
 
  - Pagerduty Incident API (Support's triggering and resolving)
  - Mailgun API
- - Email via smtplib
- - Shell Command Execution*
- - Generic HTTP POST
+ - Twilio
+ - ~~Email via smtplib~~
+ - ~~Shell Command Execution~~
+ - ~~Generic HTTP POST~~
 
 ## TODO's
 
-See issues. (Theres lots)
+See issues and go/TODO (Theres lots). The current version of stalkerd is a line by line port of the python version (and switching to Rethink). Its less than ideal and not really very idiomatic go. The port was the first step. Now we rewrite the whole thing to be actually awesome (and not just pretend awesome).
+
+## INSTALL
+
+See INSTALL/wiki

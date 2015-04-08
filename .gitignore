@@ -1,10 +1,11 @@
+go/stalkerd/stalkerd
 env/*
 *.py[cod]
 mongo.log*
 mongodb-linux*
 # C extensions
 *.so
-
+*.swp
 # Packages
 *.egg
 *.egg-info

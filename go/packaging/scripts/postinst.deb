@@ -1,0 +1,103 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+  abort-upgrade|abort-remove|abort-deconfigure|configure)
+    ;;
+
+  *)
+    echo "postinst called with unknown argument \`$1'" >&2
+    exit 1
+    ;;
+esac
+
+if [ -f /etc/stalker/stalkerd.toml ]; then
+  chmod 600 /etc/stalker/stalkerd.toml
+fi
+
+dist() {
+  lsb_release -i | awk '{print tolower($3)}' | sed -e 's/^ *//' -e 's/ *$//'
+}
+
+version() {
+  lsb_release -r | awk '{print $2}' | sed -e 's/^ *//' -e 's/ *$//' | awk -F. '{ print $1 }'
+}
+
+upstart() {
+  if [ -d /etc/init ]; then
+    echo "Your system $(dist) $(version): using upstart to control Stalkerd"
+    if [ -f /usr/local/bin/stalkerd ]; then
+      if pidof /usr/local/bin/stalkerd >/dev/null; then
+        initctl stop stalkerd || :
+      fi
+    fi
+
+    cp -r /usr/share/stalker/init/stalkerd.conf /etc/init/stalkerd.conf
+    initctl start stalkerd || :
+  else
+    echo "Couldn't find upstart to control Stalkerd, cannot proceed."
+    echo "Open an issue and tell us about your system."
+    exit 1
+  fi
+}
+
+sysv() {
+  if [ -d /etc/init.d ]; then
+    echo "Your system $(dist) $(version): using SysV to control Stalkerd"
+    if [ -f /usr/local/bin/stalkerd ] && [ -f /etc/init.d/stalkerd ]; then
+      if pidof /usr/local/bin/stalkerd >/dev/null; then
+        /etc/init.d/stalkerd stop
+      fi
+    fi
+
+    cp -r /usr/share/stalker/init.d/stalkerd /etc/init.d/stalkerd
+    chmod 0755 /etc/init.d/stalkerd
+    update-rc.d stalkerd defaults
+    exec /etc/init.d/stalkerd start || :
+  else
+    echo "Couldn't find SysV to control Stalkerd, cannot proceed."
+    echo "Open an issue and tell us about your system."
+    exit 1
+  fi
+}
+
+systemd() {
+  if which systemctl > /dev/null; then
+    cp /usr/share/stalker/systemd/stalkerd.service /lib/systemd/system/stalkerd.service
+
+    systemctl daemon-reload || :
+    if [ "$1" = "configure" ] ; then
+      echo "Your system $(dist) $(version): using systemd to control Stalkerd"
+      systemctl enable stalkerd || :
+      systemctl restart stalkerd || :
+    fi
+  else
+    echo "Couldn't find systemd to control Stalkerd, cannot proceed."
+    echo "Open an issue and tell us about your system."
+    exit 1
+  fi
+}
+
+case "$(dist)" in
+  debian)
+    if [ "$(version)" -lt "8" ]; then
+      sysv
+    else
+      systemd $1
+    fi
+    ;;
+  ubuntu)
+    if [ "$(version)" -lt "15" ]; then
+      upstart
+    else
+      systemd $1
+    fi
+    ;;
+  *)
+    echo "\033[33m Your system $(dist) $(version) \033[0m"
+    echo "\033[33m This system is not supported, you can install service manually \033[0m"
+    ;;
+esac
+
+exit 0

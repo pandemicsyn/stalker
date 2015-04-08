@@ -201,7 +201,7 @@ def _remove(config, pattern):
                 return
             else:
                 for check in host['checks']:
-                    _remove_check(config, check['_id'], check['check'])
+                    _remove_check(config, check['id'], check['check'])
     print "Removing host..."
     _remove_host(config, pattern)
 
@@ -375,7 +375,7 @@ def main():
                         failed_hosts.add(i['hostname'])
                     else:
                         print '%s%s [%s] %s on %s is alerting because "%s"' \
-                            % (prefix, i['_id'], i.get('owner'), i['check'],
+                            % (prefix, i['id'], i.get('owner'), i['check'],
                                i['hostname'], clean_out)
             print "=== Alerting - unreachable ==="
             print " ".join([x for x in failed_hosts])

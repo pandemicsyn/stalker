@@ -13,26 +13,16 @@ data_files = [('share/doc/stalker',
                ['README.md',
                 'etc/stalker-agent.conf',
                 'etc/init.d/stalker-agent',
-                'etc/stalker-manager.conf',
-                'etc/init.d/stalker-manager',
-                'etc/stalker-runner.conf',
-                'etc/init.d/stalker-runner',
                 'etc/stalkerweb.cfg',
                 'etc/init.d/stalker-web',
                 ])]
 
 if not os.getenv('VIRTUAL_ENV', False) and argv[1] == 'install':
     data_files.append(('/etc/init.d', ['etc/init.d/stalker-agent']))
-    data_files.append(('/etc/init.d', ['etc/init.d/stalker-manager']))
-    data_files.append(('/etc/init.d', ['etc/init.d/stalker-runner']))
     data_files.append(('/etc/init.d', ['etc/init.d/stalker-web']))
 else:
     data_files.append(('share/doc',
                        ['etc/init.d/stalker-agent']))
-    data_files.append(('share/doc',
-                       ['etc/init.d/stalker-manager']))
-    data_files.append(('share/doc',
-                       ['etc/init.d/stalker-runner']))
     data_files.append(('share/doc',
                        ['etc/init.d/stalker-web']))
 
@@ -54,6 +44,5 @@ setup(
     install_requires=install_requires,
     include_package_data=True,
     zip_safe=False,
-    scripts=['bin/stalker-agent', 'bin/stalker-manager', 'bin/stalker-runner',
-             'bin/stalker-web', 'bin/stalker-client', 'bin/stalkly', ],
+    scripts=['bin/stalker-agent', 'bin/stalker-web', 'bin/stalker-client', 'bin/stalkly',],
     data_files=data_files)

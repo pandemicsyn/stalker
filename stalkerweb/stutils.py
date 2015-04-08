@@ -4,6 +4,7 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode
 from bson.objectid import ObjectId
 from bson.errors import InvalidId
 import datetime
+import mmh3
 
 try:
     import json
@@ -39,3 +40,7 @@ class ObjectIDConverter(BaseConverter):
             raise ValidationError()
     def to_url(self, value):
         return urlsafe_b64encode(value.binary)
+
+# make mmh3 compat with go's murmur3 impl
+def genPrimaryKey64(data):
+    return "%x" % (mmh3.hash128(data) & 0xFFFFFFFFFFFFFFFF)
