@@ -1,0 +1,59 @@
+#!/bin/sh
+set -e
+
+dist() {
+  lsb_release -i | awk '{print tolower($3)}' | sed -e 's/^ *//' -e 's/ *$//'
+}
+
+version() {
+  lsb_release -r | awk '{print $2}' | sed -e 's/^ *//' -e 's/ *$//' | awk -F. '{ print $1 }'
+}
+
+echo Stopping stalkerd
+
+upstart() {
+  initctl stop stalkerd || :
+}
+
+systemd() {
+  if [ $1 = "remove" ] ; then
+    systemctl --no-reload disable stalkerd || :
+    systemctl stop stalkerd || :
+  fi
+}
+
+sysv() {
+  if [ -f /etc/init.d/stalkerd ] ; then
+    if pidof /usr/local/bin/stalkerd >/dev/null; then
+      exec /etc/init.d/stalkerd stop || :
+    fi
+  fi
+}
+
+validate_ver() {
+  echo "$(version) < $1" | bc
+}
+
+case "$(dist)" in
+  debian)
+    if [ "$(version)" -lt "8" ]; then
+      sysv
+    else
+      systemd $1
+    fi
+    ;;
+  ubuntu)
+    if [ "$(version)" -lt "15" ]; then
+      upstart
+    else
+      systemd $1
+    fi
+    ;;
+  *)
+    if [ -f /usr/local/bin/stalkerd ]; then
+      if pidof /usr/local/bin/stalkerd >/dev/null; then
+        kill -9 `pidof /usr/local/bin/stalkerd`
+      fi
+    fi
+    ;;
+esac

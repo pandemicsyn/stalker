@@ -35,7 +35,7 @@ func configureLogging(v *viper.Viper) {
 	log.SetLevel(level)
 
 	if v.GetString("log_format") == "text" {
-		log.SetFormatter(&log.TextFormatter{})
+		log.SetFormatter(&log.TextFormatter{DisableColors: true, FullTimestamp: true})
 	} else if v.GetString("log_format") == "json" {
 		log.SetFormatter(&log.JSONFormatter{})
 	} else {
@@ -145,5 +145,5 @@ func main() {
 	if v.GetBool("runner") {
 		runner.Stop()
 	}
-
+	log.Warnln("finished...exiting")
 }
