@@ -19,7 +19,7 @@ func NewMailgunNotification(domain, apiuser, apikey, recipient, fromaddr string)
 	return &MailgunNotification{domain, apiuser, apikey, recipient, fromaddr}
 }
 
-func (mn *MailgunNotification) genMessage(check stalker.StalkerCheck) (string, error) {
+func (mn *MailgunNotification) genMessage(check stalker.Check) (string, error) {
 	name := check.Check
 	hostname := check.Hostname
 
@@ -37,7 +37,7 @@ func (mn *MailgunNotification) genMessage(check stalker.StalkerCheck) (string, e
 	return id, err
 }
 
-func (mn *MailgunNotification) Fail(check stalker.StalkerCheck) {
+func (mn *MailgunNotification) Fail(check stalker.Check) {
 	incidentKey := fmt.Sprintf("%s:%s", check.Hostname, check.Check)
 	id, err := mn.genMessage(check)
 	if err != nil {
@@ -48,7 +48,7 @@ func (mn *MailgunNotification) Fail(check stalker.StalkerCheck) {
 	log.Infoln("Sent mailgun alert for:", incidentKey)
 }
 
-func (mn *MailgunNotification) Clear(check stalker.StalkerCheck) {
+func (mn *MailgunNotification) Clear(check stalker.Check) {
 	incidentKey := fmt.Sprintf("%s:%s", check.Hostname, check.Check)
 	id, err := mn.genMessage(check)
 	if err != nil {

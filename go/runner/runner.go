@@ -3,7 +3,6 @@ package runner
 import (
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
@@ -18,10 +17,13 @@ import (
 )
 
 const (
+
+	// STALKERDB holds the rethinkdb name
 	STALKERDB = "stalker"
 )
 
-type StalkerRunner struct {
+// Runner manages running checks/alerting/flap detection etc.
+type Runner struct {
 	conf           *runnerConf
 	rpool          *redis.Pool
 	rsess          *r.Session
@@ -34,7 +36,8 @@ type StalkerRunner struct {
 	pagerduty      *notifications.PagerDutyNotification
 }
 
-type StalkerRunnerOpts struct {
+// Opts struct for runner setup
+type Opts struct {
 	RedisAddr         string
 	RethinkConnection *r.Session
 	ViperConf         *viper.Viper
@@ -122,8 +125,9 @@ func loadConfig(v *viper.Viper) *runnerConf {
 	return conf
 }
 
-func New(conf string, opts StalkerRunnerOpts) *StalkerRunner {
-	sr := &StalkerRunner{
+// New returns a new runner instance
+func New(conf string, opts Opts) *Runner {
+	sr := &Runner{
 		conf:     loadConfig(opts.ViperConf),
 		rpool:    newRedisPool(opts.RedisAddr),
 		rsess:    opts.RethinkConnection,
@@ -148,8 +152,8 @@ func New(conf string, opts StalkerRunnerOpts) *StalkerRunner {
 	return sr
 }
 
-// Start runner loop
-func (sr *StalkerRunner) Start() {
+// Start the runner
+func (sr *Runner) Start() {
 	defer sr.swg.Done()
 	for {
 		select {
@@ -166,14 +170,15 @@ func (sr *StalkerRunner) Start() {
 
 }
 
-func (sr *StalkerRunner) Stop() {
+// Stop shutsdown the runner gracefully'ish
+func (sr *Runner) Stop() {
 	close(sr.stopChan)
 	log.Warn("runner shutting down")
 	sr.swg.Wait()
 }
 
-func (sr *StalkerRunner) getChecks(maxChecks int, timeout int) []stalker.StalkerCheck {
-	checks := make([]stalker.StalkerCheck, 0)
+func (sr *Runner) getChecks(maxChecks int, timeout int) []stalker.Check {
+	checks := make([]stalker.Check, 0)
 	expireTime := time.Now().Add(3 * time.Second).Unix()
 	for len(checks) <= maxChecks {
 		//we've exceeded our try time
@@ -193,7 +198,7 @@ func (sr *StalkerRunner) getChecks(maxChecks int, timeout int) []stalker.Stalker
 		}
 		var rb []byte
 		res, err = redis.Scan(res, nil, &rb)
-		var check stalker.StalkerCheck
+		var check stalker.Check
 		if err := json.Unmarshal(rb, &check); err != nil {
 			log.Errorln("Error decoding check from queue to json:", err.Error())
 			break
@@ -204,7 +209,7 @@ func (sr *StalkerRunner) getChecks(maxChecks int, timeout int) []stalker.Stalker
 }
 
 // TODO: Need to set deadlines
-func (sr *StalkerRunner) execCheck(url string) (map[string]stalker.CheckOutput, error) {
+func (sr *Runner) execCheck(url string) (map[string]stalker.CheckOutput, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return map[string]stalker.CheckOutput{}, err
@@ -217,7 +222,7 @@ func (sr *StalkerRunner) execCheck(url string) (map[string]stalker.CheckOutput, 
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return map[string]stalker.CheckOutput{}, errors.New(fmt.Sprintf("Got non 200 from agent: %d|%s", res.StatusCode, res.Status))
+		return map[string]stalker.CheckOutput{}, fmt.Errorf("Got non 2xx from agent: %d|%s", res.StatusCode, res.Status)
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
@@ -233,17 +238,17 @@ func (sr *StalkerRunner) execCheck(url string) (map[string]stalker.CheckOutput, 
 	return data, nil
 }
 
-func (sr *StalkerRunner) flapIncr(flapId string) {
+func (sr *Runner) flapIncr(flapID string) {
 	rconn := sr.rpool.Get()
 	defer rconn.Close()
 	rconn.Send("MULTI")
-	rconn.Send("INCR", flapId)
-	rconn.Send("EXPIRE", flapId, sr.conf.flapWindow)
+	rconn.Send("INCR", flapID)
+	rconn.Send("EXPIRE", flapID, sr.conf.flapWindow)
 	_, err := rconn.Do("EXEC")
 	stalker.OnlyLogIf(err)
 }
 
-func (sr *StalkerRunner) logStateChange(check stalker.StalkerCheck) {
+func (sr *Runner) logStateChange(check stalker.Check) {
 	log.Debug("log state change")
 	query := stalker.StateLogEntry{
 		Hostname: check.Hostname,
@@ -261,7 +266,9 @@ func (sr *StalkerRunner) logStateChange(check stalker.StalkerCheck) {
 	}
 }
 
-func (sr *StalkerRunner) HostNotificationCount(hostname string) (int, error) {
+// HostNotificationCount determines how many outstanding notificatons
+// a given host currently has.
+func (sr *Runner) HostNotificationCount(hostname string) (int, error) {
 	var count int
 	cursor, err := r.Db(STALKERDB).Table("notifications").Filter(map[string]string{"hostname": hostname}).Count().Run(sr.rsess)
 	if err != nil {
@@ -278,7 +285,8 @@ func (sr *StalkerRunner) HostNotificationCount(hostname string) (int, error) {
 	return count, nil
 }
 
-func (sr *StalkerRunner) HostFlood(hostname string) bool {
+// HostFlood determines whether a given hostname is currently experience a flood event
+func (sr *Runner) HostFlood(hostname string) bool {
 	var count int
 	cursor, err := r.Db(STALKERDB).Table("notifications").Filter(r.Row.Field("hostname").Eq(hostname).And(r.Row.Field("ts").Gt(int64(time.Now().Unix() - sr.conf.hostWindow)))).Count().Run(sr.rsess)
 	if err != nil {
@@ -299,7 +307,8 @@ func (sr *StalkerRunner) HostFlood(hostname string) bool {
 	return false
 }
 
-func (sr *StalkerRunner) GlobalFlood() bool {
+// GlobalFlood determines whether a global flood event is in progress
+func (sr *Runner) GlobalFlood() bool {
 	log.Debug("global flood")
 	var count int
 	cursor, err := r.Db(STALKERDB).Table("notifications").Filter(r.Row.Field("ts").Gt(int64(time.Now().Unix() - sr.conf.floodWindow))).Count().Run(sr.rsess)
@@ -321,24 +330,24 @@ func (sr *StalkerRunner) GlobalFlood() bool {
 	return false
 }
 
-func (sr *StalkerRunner) Flapping(flapId string) bool {
+// Flapping determines whether a given flapID is actually flapping.
+func (sr *Runner) Flapping(flapID string) bool {
 	rconn := sr.rpool.Get()
 	defer rconn.Close()
-	count, err := redis.Int(rconn.Do("GET", flapId))
+	count, err := redis.Int(rconn.Do("GET", flapID))
 	if err != nil {
 		if err != redis.ErrNil {
-			log.Errorln("Redis error while checking", flapId, " flap state:", err.Error())
+			log.Errorln("Redis error while checking", flapID, " flap state:", err.Error())
 		}
 	}
-	log.Debugln(flapId, "flap count:", count)
+	log.Debugln(flapID, "flap count:", count)
 	if count >= sr.conf.flapThreshold {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
-func (sr *StalkerRunner) emitFail(check stalker.StalkerCheck) {
+func (sr *Runner) emitFail(check stalker.Check) {
 	log.Debug("emit fail")
 	if sr.conf.pagerDutyEnabled {
 		sr.pagerduty.Fail(check)
@@ -348,7 +357,7 @@ func (sr *StalkerRunner) emitFail(check stalker.StalkerCheck) {
 	}
 }
 
-func (sr *StalkerRunner) emitClear(check stalker.StalkerCheck) {
+func (sr *Runner) emitClear(check stalker.Check) {
 	log.Debug("emit clear")
 	if sr.conf.pagerDutyEnabled {
 		sr.pagerduty.Clear(check)
@@ -358,8 +367,8 @@ func (sr *StalkerRunner) emitClear(check stalker.StalkerCheck) {
 	}
 }
 
-func (sr *StalkerRunner) CheckFailed(check stalker.StalkerCheck) {
-	log.Debug("check CheckFailed")
+func (sr *Runner) checkFailed(check stalker.Check) {
+	log.Debug("check checkFailed")
 	query := map[string]string{"hostname": check.Hostname, "check": check.Check}
 	cursor, err := r.Db(STALKERDB).Table("notifications").Filter(query).Run(sr.rsess)
 	if err != nil {
@@ -367,15 +376,14 @@ func (sr *StalkerRunner) CheckFailed(check stalker.StalkerCheck) {
 		return
 	}
 	defer cursor.Close()
-	result := stalker.StalkerNotification{}
+	result := stalker.Notification{}
 	cursor.One(&result)
 	if result.Active {
 		log.Debugln("Notification already exists for", check.Hostname, check.Check)
 		return
-	} else {
-		log.Infof("%s %s detected as failed: %s", check.Hostname, check.Check, check.Out)
 	}
-	query2 := stalker.StalkerNotification{
+	log.Infof("%s %s detected as failed: %s", check.Hostname, check.Check, check.Out)
+	query2 := stalker.Notification{
 		Cid:      check.ID,
 		Hostname: check.Hostname,
 		Check:    check.Check,
@@ -396,7 +404,7 @@ func (sr *StalkerRunner) CheckFailed(check stalker.StalkerCheck) {
 	return
 }
 
-func (sr *StalkerRunner) CheckCleared(check stalker.StalkerCheck) {
+func (sr *Runner) checkCleared(check stalker.Check) {
 	log.Debugln("check cleared")
 	log.Infof("%s %s detected as cleared", check.Hostname, check.Check)
 	query := map[string]string{"hostname": check.Hostname, "check": check.Check}
@@ -406,7 +414,7 @@ func (sr *StalkerRunner) CheckCleared(check stalker.StalkerCheck) {
 		return
 	}
 	defer cursor.Close()
-	result := stalker.StalkerNotification{}
+	result := stalker.Notification{}
 	cursor.One(&result)
 	if result.Active == false {
 		log.Infoln("No notification to clear")
@@ -422,15 +430,15 @@ func (sr *StalkerRunner) CheckCleared(check stalker.StalkerCheck) {
 
 }
 
-func (sr *StalkerRunner) emitHostFloodAlert() {
+func (sr *Runner) emitHostFloodAlert() {
 	log.Println("emit host flood alert")
 }
 
-func (sr *StalkerRunner) emitFloodAlert() {
+func (sr *Runner) emitFloodAlert() {
 	log.Println("emit flood alert")
 }
 
-func (sr *StalkerRunner) StateHasChanged(check stalker.StalkerCheck, previousStatus bool) bool {
+func (sr *Runner) stateHasChanged(check stalker.Check, previousStatus bool) bool {
 	if check.Status != previousStatus {
 		log.Debugln("state changed", check.Hostname, check.Check)
 		sr.logStateChange(check)
@@ -441,10 +449,10 @@ func (sr *StalkerRunner) StateHasChanged(check stalker.StalkerCheck, previousSta
 	return false
 }
 
-func (sr *StalkerRunner) stateChange(check stalker.StalkerCheck, previousStatus bool) {
-	stateChanged := sr.StateHasChanged(check, previousStatus)
+func (sr *Runner) stateChange(check stalker.Check, previousStatus bool) {
+	stateChanged := sr.stateHasChanged(check, previousStatus)
 	if check.Status == true && stateChanged == true {
-		sr.CheckCleared(check)
+		sr.checkCleared(check)
 	} else if check.Status == false {
 		// we don't check if stateChanged to allow for alert escalations at a later date.
 		// in the mean time this means checkFailed gets called everytime a check is run and fails.
@@ -453,19 +461,19 @@ func (sr *StalkerRunner) stateChange(check stalker.StalkerCheck, previousStatus 
 			log.Infof("%s:%s is flapping - skipping fail/clear", check.Hostname, check.Check)
 			// TODO: emit flap notifications
 		} else if check.FailCount >= sr.conf.alertThreshold {
-			sr.CheckFailed(check)
+			sr.checkFailed(check)
 		}
 	}
 }
 
-func (sr *StalkerRunner) runCheck(check stalker.StalkerCheck) {
+func (sr *Runner) runCheck(check stalker.Check) {
 	defer sr.swg.Done()
 	var err error
 	name := check.Check
 	flapid := fmt.Sprintf("flap:%s:%s", check.Hostname, check.Check)
 	previousStatus := check.Status
 	var result map[string]stalker.CheckOutput
-	result, err = sr.execCheck(fmt.Sprintf("https://%s:5050/%s", check.Ip, name))
+	result, err = sr.execCheck(fmt.Sprintf("https://%s:5050/%s", check.IP, name))
 	if err != nil {
 		result = map[string]stalker.CheckOutput{name: stalker.CheckOutput{Status: 2, Out: "", Err: err.Error()}}
 		// TODO: statsd.counter("checks.error")
@@ -473,7 +481,7 @@ func (sr *StalkerRunner) runCheck(check stalker.StalkerCheck) {
 	if _, ok := result[name]; !ok {
 		result = map[string]stalker.CheckOutput{name: stalker.CheckOutput{Status: 2, Out: "", Err: fmt.Sprintf("%s not in agent result", name)}}
 	}
-	var updatedCheck stalker.StalkerCheck
+	var updatedCheck stalker.Check
 	if result[name].Status == 0 {
 		if previousStatus == false {
 			sr.flapIncr(flapid)

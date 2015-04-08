@@ -19,7 +19,7 @@ func NewTwilioNotification(sid, token, from string, recipients []string) *Twilio
 	return &TwilioNotification{sid, token, from, recipients, twilio.NewClient(sid, token)}
 }
 
-func (tn *TwilioNotification) Fail(check stalker.StalkerCheck) {
+func (tn *TwilioNotification) Fail(check stalker.Check) {
 	for _, v := range tn.Recipients {
 		message, err := twilio.NewMessage(tn.tc, tn.FromNumber, v, twilio.Body(fmt.Sprintf("%s on %s is down", check.Check, check.Hostname)))
 		if err != nil {
@@ -30,7 +30,7 @@ func (tn *TwilioNotification) Fail(check stalker.StalkerCheck) {
 	}
 }
 
-func (tn *TwilioNotification) Clear(check stalker.StalkerCheck) {
+func (tn *TwilioNotification) Clear(check stalker.Check) {
 	for _, v := range tn.Recipients {
 		message, err := twilio.NewMessage(tn.tc, tn.FromNumber, v, twilio.Body(fmt.Sprintf("%s on %s is up", check.Check, check.Hostname)))
 		if err != nil {

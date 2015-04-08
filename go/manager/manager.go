@@ -12,10 +12,11 @@ import (
 )
 
 const (
+	// STALKERDB holds the Rethinkdb db name to use.
 	STALKERDB = "stalker"
 )
 
-type StalkerManager struct {
+type Manager struct {
 	rconn                  redis.Conn
 	rsess                  *r.Session
 	pauseFile              string
@@ -26,7 +27,8 @@ type StalkerManager struct {
 	swg                    *sync.WaitGroup
 }
 
-type StalkerManagerOpts struct {
+// Opts config options for the manager.
+type Opts struct {
 	RedisConnection        redis.Conn
 	RethinkSession         *r.Session
 	PauseFilePath          string
@@ -35,8 +37,9 @@ type StalkerManagerOpts struct {
 	NotificationExpiration int
 }
 
-func New(conf string, opts StalkerManagerOpts) *StalkerManager {
-	sm := &StalkerManager{
+// New creates a new instance of Manager
+func New(conf string, opts Opts) *Manager {
+	sm := &Manager{
 		rconn:                  opts.RedisConnection,
 		rsess:                  opts.RethinkSession,
 		pauseFile:              opts.PauseFilePath,
@@ -50,8 +53,8 @@ func New(conf string, opts StalkerManagerOpts) *StalkerManager {
 	return sm
 }
 
-// Start the manager loop
-func (sm *StalkerManager) Start() {
+// Start the manager loop.
+func (sm *Manager) Start() {
 	defer sm.swg.Done()
 	sm.Sanitize(false)
 	sm.startupShuffle()
@@ -67,7 +70,8 @@ func (sm *StalkerManager) Start() {
 	}
 }
 
-func (sm *StalkerManager) Stop() {
+// Stop the manager.
+func (sm *Manager) Stop() {
 	close(sm.stopChan)
 	log.Warningln("manager shutting down")
 	sm.swg.Wait()
@@ -78,7 +82,7 @@ func (sm *StalkerManager) Stop() {
 // for an extended period of time.
 // TODO: y u no actually shuffle!
 // TODO: optomize Get & Update
-func (sm *StalkerManager) startupShuffle() {
+func (sm *Manager) startupShuffle() {
 	log.Debugln("Reshuffling checks")
 	var err error
 	rquery := r.Db(STALKERDB).Table("checks").Between(nil, time.Now().Unix(), r.BetweenOpts{Index: "next", RightBound: "closed"})
@@ -88,7 +92,7 @@ func (sm *StalkerManager) startupShuffle() {
 		log.Panic(err)
 	}
 
-	result := stalker.StalkerCheck{}
+	result := stalker.Check{}
 
 	for cursor.Next(&result) {
 		_, err := r.Db(STALKERDB).Table("checks").Get(result.ID).Update(map[string]int{"next": int(time.Now().Unix()) + stalker.RandIntInRange(1, sm.shuffleT)}).RunWrite(sm.rsess)
@@ -99,7 +103,7 @@ func (sm *StalkerManager) startupShuffle() {
 }
 
 // Check if pause file exists and sleep until its removed if it does
-func (sm *StalkerManager) pauseIfAsked() {
+func (sm *Manager) pauseIfAsked() {
 	if stalker.FExists(sm.pauseFile) {
 		log.Warningln("Pausing")
 		for {
@@ -111,7 +115,7 @@ func (sm *StalkerManager) pauseIfAsked() {
 	}
 }
 
-func (sm *StalkerManager) queueLength() int {
+func (sm *Manager) queueLength() int {
 	n, err := redis.Int(sm.rconn.Do("LLEN", "worker1"))
 	if err != nil {
 		log.Panic(err)
@@ -120,7 +124,7 @@ func (sm *StalkerManager) queueLength() int {
 }
 
 // place a check on the queue
-func (sm *StalkerManager) enqueueCheck(check stalker.StalkerCheck) {
+func (sm *Manager) enqueueCheck(check stalker.Check) {
 	log.Debugln("Enqueue", check.Check)
 	cb, err := json.Marshal(check)
 	stalker.OnlyLogIf(err)
@@ -129,9 +133,9 @@ func (sm *StalkerManager) enqueueCheck(check stalker.StalkerCheck) {
 	stalker.OnlyLogIf(err)
 }
 
-// scan the checks db for checks marked pending but not actually
+// Sanitize scan the checks db for checks marked pending but not actually
 // in progress. i.e. redis died, or services where kill -9'd.
-func (sm *StalkerManager) Sanitize(flushQueued bool) {
+func (sm *Manager) Sanitize(flushQueued bool) {
 	if flushQueued {
 		_, err := sm.rconn.Do("DEL", "worker1")
 		stalker.OnlyLogIf(err)
@@ -147,7 +151,7 @@ func (sm *StalkerManager) Sanitize(flushQueued bool) {
 }
 
 // scan the notifications db for checks older than our expiration time and remove them. This will allow them be re-alerted on.
-func (sm *StalkerManager) expireNotifications() {
+func (sm *Manager) expireNotifications() {
 	log.Debugln("expire notifications")
 	_, err := r.Db(STALKERDB).Table("notifications").Filter(r.Row.Field("ts").Lt(time.Now().Unix() - sm.notificationExpiration)).Delete().Run(sm.rsess)
 	if err != nil {
@@ -157,7 +161,7 @@ func (sm *StalkerManager) expireNotifications() {
 
 // scan the checks db for checks that need to run
 // mark them as pending and then drop'em on the q for the runner.
-func (sm *StalkerManager) scanChecks() {
+func (sm *Manager) scanChecks() {
 	sm.pauseIfAsked()
 	//i := sm.queueLength()
 	qcount := 0
@@ -170,7 +174,7 @@ func (sm *StalkerManager) scanChecks() {
 		return
 	}
 	defer cursor.Close()
-	result := stalker.StalkerCheck{}
+	result := stalker.Check{}
 
 	for cursor.Next(&result) {
 		_, err := r.Db(STALKERDB).Table("checks").Get(result.ID).Update(map[string]bool{"pending": true}).RunWrite(sm.rsess)

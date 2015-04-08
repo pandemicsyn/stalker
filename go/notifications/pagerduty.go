@@ -28,7 +28,7 @@ type PagerDutyEvent struct {
 	EventType   string               `json:"event_type"`
 	IncidentKey string               `json:"incident_key"`
 	Description string               `json:"description"`
-	Details     stalker.StalkerCheck `json:"details"`
+	Details     stalker.Check `json:"details"`
 	Client      string               `json:"client"`
 }
 
@@ -36,7 +36,7 @@ func NewPagerDutyNotification(POneKey, PTwoKey, IncidentKeyPrefix string) *Pager
 	return &PagerDutyNotification{POneKey, PTwoKey, IncidentKeyPrefix}
 }
 
-func (pn *PagerDutyNotification) sendEvent(skey, etype, description, incidentKey string, check stalker.StalkerCheck) (string, error) {
+func (pn *PagerDutyNotification) sendEvent(skey, etype, description, incidentKey string, check stalker.Check) (string, error) {
 	pde := PagerDutyEvent{
 		ServiceKey:  skey,
 		EventType:   etype,
@@ -73,7 +73,7 @@ func (pn *PagerDutyNotification) sendEvent(skey, etype, description, incidentKey
 	return respJson["incident_key"], nil
 }
 
-func (pn *PagerDutyNotification) Fail(check stalker.StalkerCheck) {
+func (pn *PagerDutyNotification) Fail(check stalker.Check) {
 	incidentKey := fmt.Sprintf("%s%s:%s", pn.IncidentKeyPrefix, check.Hostname, check.Check)
 	switch check.Priority {
 	case 0:
@@ -97,7 +97,7 @@ func (pn *PagerDutyNotification) Fail(check stalker.StalkerCheck) {
 	}
 }
 
-func (pn *PagerDutyNotification) Clear(check stalker.StalkerCheck) {
+func (pn *PagerDutyNotification) Clear(check stalker.Check) {
 	incidentKey := fmt.Sprintf("%s%s:%s", pn.IncidentKeyPrefix, check.Hostname, check.Check)
 	switch check.Priority {
 	case 0:

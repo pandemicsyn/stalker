@@ -5,10 +5,15 @@ Initial Line by line port to Go AND migration to rethinkdb
 - lots of stuff still hard coded
 
 
+### General prereqs
+
+1. You need a working rethinkdb install
+2. You need a working redis install
+
 ### Prereqs for building
 
-You need a working go install
-You need godep:
+1. You need a working go install
+2. You need godep:
 
     go get github.com/tools/godep
 

@@ -90,10 +90,10 @@ func main() {
 
 	log.Warningln("stalkerd starting up")
 
-	var manager *sm.StalkerManager
+	var manager *sm.Manager
 	if v.GetBool("manager") {
 		log.Warningln("starting manager")
-		managerConf := sm.StalkerManagerOpts{PauseFilePath: PauseFile, ShuffleTime: ShuffleT, NotificationExpiration: v.GetInt("notifications_expiration")}
+		managerConf := sm.Opts{PauseFilePath: PauseFile, ShuffleTime: ShuffleT, NotificationExpiration: v.GetInt("notifications_expiration")}
 		managerConf.RedisConnection, err = redis.Dial("tcp", v.GetString("redisaddr"))
 		if err != nil {
 			log.Panic(err)
@@ -114,10 +114,10 @@ func main() {
 		go manager.Start()
 	}
 
-	var runner *sr.StalkerRunner
+	var runner *sr.Runner
 	if v.GetBool("runner") {
 		log.Warningln("starting runner")
-		runnerConf := sr.StalkerRunnerOpts{}
+		runnerConf := sr.Opts{}
 		runnerConf.RedisAddr = v.GetString("redisaddr")
 		runnerConf.ViperConf = v
 		runnerConf.RethinkConnection, err = r.Connect(r.ConnectOpts{

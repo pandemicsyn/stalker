@@ -1,5 +1,6 @@
 package stalker
 
+// CheckInfo
 type CheckInfo struct {
 	Args     string `json:"args" gorethink:"args"`
 	Cmd      string `json:"cmd" gorethink:"cmd"`
@@ -8,19 +9,21 @@ type CheckInfo struct {
 	Priority int64  `json:"priority" gorethink:"priority"`
 }
 
-type StalkerHost struct {
-	Id       string               `json:"id,omitempty" gorethink:"id"`
+// Host profile
+type Host struct {
+	ID       string               `json:"id,omitempty" gorethink:"id"`
 	Checks   map[string]CheckInfo `json:"checks" gorethink:"checks"`
 	Hostname string               `json:"hostname" gorethink:"hostname"`
-	Ip       string               `json:"ip" gorethink:"ip"`
+	IP       string               `json:"ip" gorethink:"ip"`
 	Roles    []string             `json:"roles,omitempty" gorethink:"roles,omitempty"`
 }
 
-type StalkerCheck struct {
+// Check entry
+type Check struct {
 	ID            string `json:"id,omitempty" gorethink:"id,omitempty"`
 	Status        bool   `json:"status" gorethink:"status"`
 	Hostname      string `json:"hostname" gorethink:"hostname"`
-	Ip            string `json:"ip" gorethink:"ip"`
+	IP            string `json:"ip" gorethink:"ip"`
 	InMaintenance bool   `json:"in_maintenance" gorethink:"in_maintenance"`
 	Suspended     bool   `json:"suspended" gorethink:"suspended"`
 	Check         string `json:"check" gorethink:"check"`
@@ -36,6 +39,7 @@ type StalkerCheck struct {
 	Flapping      bool   `json:"flapping,omitempty" gorethink:"flapping"`
 }
 
+// StateLogEntry an entry in the state_log
 type StateLogEntry struct {
 	Cid      string `json:"cid,omitempty" gorethink:"cid"`
 	Status   bool   `json:"status" gorethink:"status"`
@@ -46,7 +50,8 @@ type StateLogEntry struct {
 	Owner    string `json:"owner,omitempty" gorethink:"owner,omitempty"`
 }
 
-type StalkerNotification struct {
+// Notification
+type Notification struct {
 	Cid      string `json:"cid,omitempty" gorethink:"cid"`
 	Hostname string `json:"hostname" gorethink:"hostname"`
 	Check    string `json:"check" gorethink:"check"`
@@ -55,6 +60,7 @@ type StalkerNotification struct {
 	Active   bool   `json:"active,omitempty" gorethink:"active"`
 }
 
+// CheckOutput stores the output of a check
 type CheckOutput struct {
 	Err    string `json:"err"`
 	Out    string `json:"out"`
