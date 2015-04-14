@@ -1,15 +1,24 @@
-# Ubuntu install (via stdeb built packages)
+## Ubuntu install
 
-## stalkerd and stalker-web
+### Prereq's
 
-Setup Rethinkdb:
+Setup Rethinkdb following the instructions located at http://rethinkdb.com/docs/install/
+Roughly something like:
 
-    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv 7F0CEB10
-    sudo su -c 'echo "deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen" >>  /etc/apt/sources.list.d/10gen.list'
+    source /etc/lsb-release && echo "deb http://download.rethinkdb.com/apt $DISTRIB_CODENAME main" | sudo tee /etc/apt/sources.list.d/rethinkdb.list
+    wget -qO- http://download.rethinkdb.com/apt/pubkey.gpg | sudo apt-key add -
     sudo apt-get update
-    sudo apt-get install mongodb-10gen
-    sudo su -c 'echo "bind_ip = 127.0.0.1" >> /etc/mongodb.conf'
-    sudo service mongodb restart
+    sudo apt-get install rethinkdb
+
+Install the latest version of redis available for your distro. Roughly something like:
+
+    sudo apt-get update
+    sudo apt-get install redis-server
+    sudo service redis-server start
+
+If you will be building stalkerd, you'll need a working Go install as well. Follow the instructions located at http://golang.org/doc/install and be sure to also setup your $GOPATH. Once you have a working Go install you will need to install godep:
+
+    go get github.com/tools/godep
 
 ### stalker-web 
 
@@ -31,21 +40,34 @@ Setup stalker-web (stdeb built) and dependencies (you may wanna build in virtual
     #alternatively start stalkerweb using gunicorn in daemon mode (w/ 2 workers)
     #stalker-web --conf=etc/stalkerweb-simple.cfg -w 2 -G
 
-### stalker-manager
- 
-Assumes you built and installed packages above
+### stalkerd
 
-    #start stalker-manager in the foreground
-    mdkir /var/run/stalker; chown <youruser>:<youruser> /var/run/stalker
-    stalker-manager --pid=/var/run/stalker/manager.pid --conf=etc/stalker-manager.conf start
+First obtain the stalker code. Since in its current configuration its not go getable
 
-### stalker-runner
+    git clone https://github.com/pandemicsyn/stalker.git $GOPATH/src/github.com/pandemicsyn/stalker
+    cd $GOPATH/src/github.com/pandemicsyn/stalker
+    git checkout go
+    cd go
 
-Assumes you built and installed packages above
+If you wish to manually build/install (like during dev) do something like:
 
-    #start stalker-runner in the foreground
-    mdkir /var/run/stalker; chown <youruser>:<youruser> /var/run/stalker
-    stalker-runner --pid=/var/run/stalker/runner.pid --conf=etc/stalker-runner.conf start
+    godep go install ./...
+    mkdir -p /etc/stalker/ && cp -av packaging/root/etc/stalker/stalkerd.toml /etc/stalker
+    $GOPATH/bin/stalkerd 
+
+Or use the make file
+
+    make build
+
+Or better yet build .debs (if fpm is installed)
+
+    make packages
+
+Install the package (which also starts the service)
+
+    dpkg -i packaging/output/stalkerd.dpkg 
+
+Go grab a coffee, check /etc/stalker and /usr/share/stalker for sample configs, init scripts, etc.
 
 ### stalker-agent
 
