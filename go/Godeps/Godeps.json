@@ -6,19 +6,14 @@
 	],
 	"Deps": [
 		{
-			"ImportPath": "code.google.com/p/goprotobuf/proto",
-			"Comment": "go.r60-163",
-			"Rev": "9352842ae63ee1d7e74e074ce7bb10370c4b6b9e"
-		},
-		{
 			"ImportPath": "github.com/BurntSushi/toml",
 			"Comment": "v0.1.0-18-g443a628",
 			"Rev": "443a628bc233f634a75bcbdd71fe5350789f1afa"
 		},
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
-			"Comment": "v0.7.2-4-gcdd90c3",
-			"Rev": "cdd90c38c6e3718c731b555b9c3ed1becebec3ba"
+			"Comment": "v0.7.3",
+			"Rev": "55eb11d21d2a31a3cc93838241d04800f52e823d"
 		},
 		{
 			"ImportPath": "github.com/armon/consul-api",
@@ -28,6 +23,10 @@
 			"ImportPath": "github.com/carlosdp/twiliogo",
 			"Comment": "v0.1-15-g6cdb8bf",
 			"Rev": "6cdb8bf2869bbcd06275eed8e4871f595dcf7c57"
+		},
+		{
+			"ImportPath": "github.com/cenkalti/backoff",
+			"Rev": "9831e1e25c874e0a0601b6dc43641071414eec7a"
 		},
 		{
 			"ImportPath": "github.com/coreos/etcd/etcdserver/etcdhttp/httptypes",
@@ -46,8 +45,8 @@
 		},
 		{
 			"ImportPath": "github.com/dancannon/gorethink",
-			"Comment": "v0.6.3-11-g8c7b5d4",
-			"Rev": "8c7b5d4ea04527412d0da367b9407a0656b2c7ef"
+			"Comment": "v0.7.0",
+			"Rev": "b1a22480f24cc0624fa4c173719c72b503960523"
 		},
 		{
 			"ImportPath": "github.com/garyburd/redigo/internal",
@@ -56,6 +55,10 @@
 		{
 			"ImportPath": "github.com/garyburd/redigo/redis",
 			"Rev": "535138d7bcd717d6531c701ef5933d98b1866257"
+		},
+		{
+			"ImportPath": "github.com/golang/protobuf/proto",
+			"Rev": "655cdfa588ea190e901bc5590e65d5621688847c"
 		},
 		{
 			"ImportPath": "github.com/kr/pretty",
@@ -123,11 +126,11 @@
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/cast5",
-			"Rev": "1351f936d976c60a0a48d728281922cf63eafb8d"
+			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/openpgp",
-			"Rev": "1351f936d976c60a0a48d728281922cf63eafb8d"
+			"Rev": "c57d4a71915a248dbad846d60825145062b4c18e"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",
