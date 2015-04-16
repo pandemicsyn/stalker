@@ -108,7 +108,7 @@ func main() {
 			Timeout:  5 * time.Second,
 		})
 		if err != nil {
-			log.Panic(err)
+			log.Fatalln(err.Error())
 		}
 		manager = sm.New("something", managerConf)
 		go manager.Start()

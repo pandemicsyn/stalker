@@ -77,7 +77,7 @@ func (sm *Manager) Stop() {
 	sm.swg.Wait()
 }
 
-// randomly reshuffle all checks that need to be done right now and schedul
+// randomly reshuffle all checks that need to be done right now and schedule
 // them for a future time. i.e. if the stalker-manager was offline
 // for an extended period of time.
 // TODO: y u no actually shuffle!
@@ -85,7 +85,7 @@ func (sm *Manager) Stop() {
 func (sm *Manager) startupShuffle() {
 	log.Debugln("Reshuffling checks")
 	var err error
-	rquery := r.Db(STALKERDB).Table("checks").Between(nil, time.Now().Unix(), r.BetweenOpts{Index: "next", RightBound: "closed"})
+	rquery := r.Db(STALKERDB).Table("checks").Between(0, time.Now().Unix(), r.BetweenOpts{Index: "next", RightBound: "closed"})
 	cursor, err := rquery.Run(sm.rsess)
 	defer cursor.Close()
 	if err != nil {
@@ -165,7 +165,7 @@ func (sm *Manager) scanChecks() {
 	sm.pauseIfAsked()
 	//i := sm.queueLength()
 	qcount := 0
-	rquery := r.Db(STALKERDB).Table("checks").Between(nil, time.Now().Unix(), r.BetweenOpts{Index: "next", RightBound: "closed"})
+	rquery := r.Db(STALKERDB).Table("checks").Between(0, time.Now().Unix(), r.BetweenOpts{Index: "next", RightBound: "closed"})
 	rquery = rquery.Filter(r.Row.Field("pending").Eq(false).And(r.Row.Field("suspended").Eq(false)))
 	cursor, err := rquery.Run(sm.rsess)
 	if err != nil {
