@@ -25,7 +25,7 @@ packages: clean build deb
 #	rice --import-path="github.com/drone/drone/server" append --exec="packaging/root/usr/local/bin/droned"
 
 deb:
-	fpm -s dir -t deb -n stalkerd -v $(VERSION) -p packaging/output/stalkerd.deb \
+	fpm -s dir -t deb -n stalkerd -v $(VERSION) -p packaging/output/stalkerd-$(VERSION)_amd64.deb \
 		--deb-priority optional --category admin \
 		--force \
 		--iteration $(ITTERATION) \
@@ -40,7 +40,7 @@ deb:
 		--vendor "stalker" -a amd64 \
 		--config-files /etc/stalker/stalkerd.toml \
 		packaging/root/=/
-	cp packaging/output/stalkerd.deb packaging/output/stalkerd.deb.$(SHA)
+	cp packaging/output/stalkerd-$(VERSION)_amd64.deb packaging/output/stalkerd.deb.$(SHA)
 
 #rpm:
 #	fpm -s dir -t rpm -n drone -v $(VERSION) -p packaging/output/drone.rpm \

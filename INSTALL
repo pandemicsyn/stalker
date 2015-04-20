@@ -40,7 +40,19 @@ Setup stalker-web (stdeb built) and dependencies (you may wanna build in virtual
     #alternatively start stalkerweb using gunicorn in daemon mode (w/ 2 workers)
     #stalker-web --conf=etc/stalkerweb-simple.cfg -w 2 -G
 
-### stalkerd
+### stalkerd via deb's (repo targets trusty, should work on most anything x64)
+
+Setup the repo
+
+    wget -qO- http://gpgkeys.ronin.io/stalker.gpg.key | sudo apt-key add -
+    echo "deb http://apt.ronin.io trusty main" | sudo tee /etc/apt/sources.list.d/stalker.list
+
+Install the package
+
+    sudo apt-get update
+    sudo apt-get install stalkerd
+
+### stalkerd via source
 
 First obtain the stalker code. Since in its current configuration its not go getable
 
