@@ -14,7 +14,6 @@ Install the latest version of redis available for your distro. Roughly something
 
     sudo apt-get update
     sudo apt-get install redis-server
-    sudo service redis-server start
 
 If you will be building stalkerd, you'll need a working Go install as well. Follow the instructions located at http://golang.org/doc/install and be sure to also setup your $GOPATH. Once you have a working Go install you will need to install godep:
 
@@ -28,24 +27,26 @@ Setup stalker-web (stdeb built) and dependencies (you may wanna build in virtual
     git clone https://github.com/pandemicsyn/stalker.git
     cd stalker
     python setup.py --command-packages=stdeb.command bdist_deb
+    apt-get install python-eventlet
     dpkg -i deb_dist/python-stalker_0.X.X-1_all.deb
     #alternatively setup stalker via setup.py
     #python setup.py install
-    sudo pip install flask flask-wtf==0.8 flask-bcrypt flask-pymongo redis
-    stalker-web --gen-config > etc/stalkerweb-simple.cfg
-    stalker-web --conf=etc/stalkerweb-simple.cfg --init-db
+    sudo pip install flask flask-wtf==0.8 flask-bcrypt Flask-RethinkDB redis mmh3
+    stalker-web --gen-config > /etc/stalker/stalkerweb.cfg
+    ###PLACEHOLDER FOR RETHINKDB PASSWORD CONFIG/UPDATED config###
+    stalker-web --conf=/etc/stalker/stalkerweb.cfg --init-db
     stalker-web -a <yourusername>
     #start service in debug mode
-    stalker-web --conf=etc/stalkerweb-simple.cfg -d
+    stalker-web --conf=/etc/stalker/stalkerweb.cfg -d
     #alternatively start stalkerweb using gunicorn in daemon mode (w/ 2 workers)
-    #stalker-web --conf=etc/stalkerweb-simple.cfg -w 2 -G
+    #stalker-web --conf=/etc/stalker/stalkerweb.cfg -w 2 -G
 
 ### stalkerd via deb's (repo targets trusty, should work on most anything x64)
 
 Setup the repo
 
     wget -qO- http://gpgkeys.ronin.io/stalker.gpg.key | sudo apt-key add -
-    echo "deb http://apt.ronin.io trusty main" | sudo tee /etc/apt/sources.list.d/stalker.list
+    echo "deb http://apt.stalker.ronin.io trusty main" | sudo tee /etc/apt/sources.list.d/stalker.list
 
 Install the package
 
