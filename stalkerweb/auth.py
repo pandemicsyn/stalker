@@ -5,6 +5,7 @@ from stalkerweb import rdb, app
 from stalkerweb.stutils import genPrimaryKey64
 import rethinkdb as r
 
+
 def is_valid_email_login(email, password):
     uinfo = list(r.table("users").filter({"email": email}).run(rdb.conn))
     if len(uinfo) != 1:
@@ -17,7 +18,8 @@ def is_valid_email_login(email, password):
 
 
 def is_valid_login(username, password):
-    uinfo = list(r.table("users").get_all(username, index="username").run(rdb.conn))
+    uinfo = list(r.table("users").get_all(
+        username, index="username").run(rdb.conn))
     if len(uinfo) != 1:
         return False
     else:
@@ -30,7 +32,8 @@ def is_valid_login(username, password):
 def add_user(username, password, email):
     pw_hash = generate_password_hash(password)
     try:
-        res = r.table("users").insert({'id': genPrimaryKey64("%s%s" % (username, email)), 'username': username, 'hash': pw_hash, 'email': email}).run(rdb.conn)
+        res = r.table("users").insert({'id': genPrimaryKey64("%s%s" % (
+            username, email)), 'username': username, 'hash': pw_hash, 'email': email}).run(rdb.conn)
         if res["inserted"] == 1:
             return True
         else:
@@ -42,7 +45,8 @@ def add_user(username, password, email):
 def change_pass(username, email, password):
     pw_hash = generate_password_hash(password)
     try:
-        q = r.table("users").get(genPrimaryKey64("%s%s" % (username, email))).update({"hash": pw_hash}).run(rdb.conn)
+        q = r.table("users").get(genPrimaryKey64("%s%s" % (username, email))).update(
+            {"hash": pw_hash}).run(rdb.conn)
         if q["replaced"]:
             return True
         else:
@@ -54,7 +58,8 @@ def change_pass(username, email, password):
 
 def remove_user(username, email):
     try:
-        q = r.table("users").get(genPrimaryKey64("%s%s" % (username, email))).delete().run(rdb.conn)
+        q = r.table("users").get(
+            genPrimaryKey64("%s%s" % (username, email))).delete().run(rdb.conn)
         if q["deleted"] == 1:
             return True
         else:

@@ -3,8 +3,8 @@ log_level = "info"
 log_format = "text"
 log_target = "stdout" 
 
-redisaddr = "127.0.0.1:49155"
-rethinkaddr = "172.17.0.36:28015"
+redisaddr = "127.0.0.1:6379"
+rethinkaddr = "127.0.0.1:28015"
 rethinkkey = "password"
 
 checkkey = "canhazstatus"

@@ -1,13 +1,11 @@
 import eventlet
 eventlet.monkey_patch()
 from eventlet.green.socket import getfqdn
-from flask.ext.pymongo import PyMongo
 from flask import Flask
 import redis
 from stalkerweb.stutils import ObjectIDConverter
 from stalker.stalker_utils import get_logger
 from flask_rethinkdb import RethinkDB
-
 
 
 def _init_redis(app):
@@ -27,13 +25,11 @@ app = Flask(__name__, instance_relative_config=False)
 app.url_map.converters['objectid'] = ObjectIDConverter
 
 
-app.config["RETHINKDB_HOST"] = "172.17.0.31"
+app.config["RETHINKDB_HOST"] = "127.0.0.1"
 app.config["RETHINKDB_PORT"] = "28015"
 app.config["RETHINKDB_AUTH"] = "password"
 app.config["RETHINKDB_DB"] = "stalker"
 app.config['LOCAL_CID'] = getfqdn()
-app.config['MONGO_USERNAME'] = None
-app.config['MONGO_PASSWORD'] = None
 app.config['GLOBAL_CLUSTERS'] = None
 app.config['REMOTE_TIMEOUT'] = 2
 app.config['REGISTER_KEY'] = 'itsamario'
@@ -50,7 +46,6 @@ app.config['LOG_COUNT'] = 7
 
 app.config.from_envvar('STALKERWEB_CONFIG')
 
-mongo = PyMongo(app)
 rc = _init_redis(app)
 rdb = RethinkDB(app)
 
@@ -60,5 +55,3 @@ for i in app.config:
 print "== END APP CONFIG =="
 
 from stalkerweb import views
-
-

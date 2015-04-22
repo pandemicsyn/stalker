@@ -18,6 +18,7 @@ except:
 
 
 class APIEncoder(json.JSONEncoder):
+
     def default(self, obj):
         if isinstance(obj, (datetime.datetime, datetime.date)):
             return obj.ctime()
@@ -27,20 +28,25 @@ class APIEncoder(json.JSONEncoder):
             return str(obj)
         return json.JSONEncoder.default(self, obj)
 
+
 def jsonify(data):
     return Response(json.dumps(data, cls=APIEncoder),
                     mimetype='application/json')
-                    
+
 
 class ObjectIDConverter(BaseConverter):
+
     def to_python(self, value):
         try:
             return ObjectId(urlsafe_b64decode(value))
         except (InvalidId, ValueError, TypeError):
             raise ValidationError()
+
     def to_url(self, value):
         return urlsafe_b64encode(value.binary)
 
 # make mmh3 compat with go's murmur3 impl
+
+
 def genPrimaryKey64(data):
     return "%x" % (mmh3.hash128(data) & 0xFFFFFFFFFFFFFFFF)

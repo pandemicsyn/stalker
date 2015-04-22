@@ -8,7 +8,6 @@ import optparse
 from subprocess import Popen
 import rethinkdb as r
 
-STATE_LOG_SIZE = 5368709120
 
 def _gen_key(key_len=16, extended=False):
     base = string.ascii_letters + string.digits
@@ -20,18 +19,24 @@ def _gen_key(key_len=16, extended=False):
 
 
 def auto_gen_config():
-    defaults = {'RETHINK_DBNAME': 'stalker',
+    defaults = {'RETHINKDB_DB': 'stalker',
+                'RETHINKDB_HOST': '127.0.0.1',
+                'RETHINKDB_PORT': '28015',
+                'RETHINKDB_KEY': 'password',
+                'GLOBAL_CLUSTERS': dict(),
                 'REGISTER_KEY': _gen_key(),
                 'API_KEY': _gen_key(),
                 'SECRET_KEY': _gen_key(32, True)}
     print "# begin generated stalkerweb.cfg"
     for k, v in defaults.items():
-        print "%s = '%s'" % (k, v)
+        if k == "GLOBAL_CLUSTERS":
+            print "%s = %s" % (k, v)
+        else:
+            print "%s = '%s'" % (k, v)
     print "# end generated stalkerweb.cfg"
 
 
 def main():
-    global STATE_LOG_SIZE
     usage = '''%prog --host 0.0.0.0 -p 5000 --debug -a <username>'''
     args = optparse.OptionParser(usage)
     args.add_option('--host', default='0.0.0.0',
@@ -77,7 +82,7 @@ def main():
 
     if options.init_db:
         with stalkerweb.app.test_request_context():
-            
+
             dbs = r.db_list().run(stalkerweb.rdb.conn)
             if "stalker" not in dbs:
                 print r.db_create('stalker').run(stalkerweb.rdb.conn)
@@ -114,7 +119,7 @@ def main():
             print r.db("stalker").table("notifications").index_create("cid").run(stalkerweb.rdb.conn)
             print r.db("stalker").table("notifications").index_create("hostname").run(stalkerweb.rdb.conn)
             print r.db("stalker").table("notifications").index_create("check").run(stalkerweb.rdb.conn)
-            
+
             if "notes" in tables:
                 print r.db("stalker").table_drop("notes").run(stalkerweb.rdb.conn)
             print r.db("stalker").table_create("notes").run(stalkerweb.rdb.conn)

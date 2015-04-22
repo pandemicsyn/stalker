@@ -10,7 +10,7 @@ install_requires = []
 name = "stalker"
 
 data_files = [('share/doc/stalker',
-               ['README.md',
+               ['README.md', 'INSTALL',
                 'etc/stalker-agent.conf',
                 'etc/init.d/stalker-agent',
                 'etc/stalkerweb.cfg',

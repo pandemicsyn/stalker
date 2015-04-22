@@ -7,3 +7,4 @@ eventlet
 hiredis
 simplejson
 mmh3
+Flask-RethinkDB

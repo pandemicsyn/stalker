@@ -28,6 +28,7 @@ def _postnote(config, host, message, uname=None):
         else:
             print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
 
+
 def _getrecentnotes(config, host, limit=1):
     endpoint = '/notes/%s?limit=%d' % (host, limit)
     url = config['url'] + endpoint
@@ -50,6 +51,7 @@ def _getrecentnotes(config, host, limit=1):
         else:
             print "Failed note check. Status: %s Msg: %s" % (err.code, err.reason)
             return False
+
 
 def _getnotes(config, host, limit=10):
     endpoint = '/notes/%s?limit=%d' % (host, limit)
@@ -195,7 +197,8 @@ def _remove(config, pattern):
     if host:
         if 'checks' in host:
             print [i['check'] for i in host['checks']]
-            _ok = raw_input('Ok to remove all these checks? [y/n] ').strip().lower()
+            _ok = raw_input(
+                'Ok to remove all these checks? [y/n] ').strip().lower()
             if _ok != 'y':
                 print "Aborting."
                 return
@@ -246,6 +249,7 @@ def _request(config, rtype):
     parsed = json.loads(content)
     return content, parsed
 
+
 def get_message(message):
     if not message:
         editor = os.environ.get(
@@ -261,6 +265,7 @@ def get_message(message):
     if message == '-':
         message = ''
     return message
+
 
 def main():
     """stalkerweb cli"""
