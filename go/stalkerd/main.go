@@ -1,17 +1,18 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"runtime"
+	"syscall"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
 	"github.com/garyburd/redigo/redis"
 	sm "github.com/pandemicsyn/stalker/go/manager"
 	sr "github.com/pandemicsyn/stalker/go/runner"
 	"github.com/spf13/viper"
-	"os"
-	"os/signal"
-	"runtime"
-	"syscall"
-	"time"
 )
 
 const (
@@ -63,6 +64,8 @@ func main() {
 	v.SetDefault("rethinkaddr", "127.0.0.1:28015")
 	v.SetDefault("rethinkkey", "password")
 	v.SetDefault("rethinkdb", STALKERDB)
+	v.SetDefault("rethinkdb_pool_max_idle", 5)
+	v.SetDefault("rethinkdb_pool_max_open", 100)
 	v.SetDefault("manager", true)
 	v.SetDefault("runner", true)
 	v.SetDefault("log_level", "info")
@@ -90,6 +93,19 @@ func main() {
 
 	log.Warningln("stalkerd starting up")
 
+	rethinksess, err := r.Connect(r.ConnectOpts{
+		Address:       v.GetString("rethinkaddr"),
+		Database:      v.GetString("rethinkdb"),
+		AuthKey:       v.GetString("rethinkkey"),
+		MaxIdle:       v.GetInt("rethinkdb_pool_max_idle"),
+		MaxOpen:       v.GetInt("rethinkdb_pool_max_open"),
+		Timeout:       5 * time.Second,
+		DiscoverHosts: false,
+	})
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
 	var manager *sm.Manager
 	if v.GetBool("manager") {
 		log.Warningln("starting manager")
@@ -99,17 +115,18 @@ func main() {
 			log.Panic(err)
 		}
 		managerConf.ScanInterval = 2
-		managerConf.RethinkSession, err = r.Connect(r.ConnectOpts{
-			Address:  v.GetString("rethinkaddr"),
-			Database: v.GetString("rethinkdb"),
-			AuthKey:  v.GetString("rethinkkey"),
-			MaxIdle:  10,
-			MaxOpen:  50,
-			Timeout:  5 * time.Second,
-		})
-		if err != nil {
-			log.Fatalln(err.Error())
-		}
+		managerConf.RethinkConnection = rethinksess
+		/*
+			managerConf.RethinkConnection, err = r.Connect(r.ConnectOpts{
+				Address:       v.GetString("rethinkaddr"),
+				Database:      v.GetString("rethinkdb"),
+				AuthKey:       v.GetString("rethinkkey"),
+				MaxIdle:       10,
+				MaxOpen:       50,
+				Timeout:       5 * time.Second,
+				DiscoverHosts: false,
+			})*/
+
 		manager = sm.New("something", managerConf)
 		go manager.Start()
 	}
@@ -120,18 +137,7 @@ func main() {
 		runnerConf := sr.Opts{}
 		runnerConf.RedisAddr = v.GetString("redisaddr")
 		runnerConf.ViperConf = v
-		runnerConf.RethinkConnection, err = r.Connect(r.ConnectOpts{
-			Address:  v.GetString("rethinkaddr"),
-			Database: v.GetString("rethinkdb"),
-			AuthKey:  v.GetString("rethinkkey"),
-			MaxIdle:  10,
-			MaxOpen:  50,
-			Timeout:  5 * time.Second,
-		})
-		if err != nil {
-			log.Panic(err)
-		}
-
+		runnerConf.RethinkConnection = rethinksess
 		runner = sr.New("something", runnerConf)
 		go runner.Start()
 	}

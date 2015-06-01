@@ -6,6 +6,8 @@ log_target = "stdout"
 redisaddr = "127.0.0.1:6379"
 rethinkaddr = "127.0.0.1:28015"
 rethinkkey = "password"
+rethinkdb_pool_max_idle = 5
+rethinkdb_pool_max_open = 100
 
 checkkey = "canhazstatus"
 

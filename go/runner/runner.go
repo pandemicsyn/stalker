@@ -4,16 +4,17 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"sync"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
 	"github.com/garyburd/redigo/redis"
 	"github.com/pandemicsyn/stalker/go/notifications"
 	"github.com/pandemicsyn/stalker/go/stalker"
 	"github.com/spf13/viper"
-	"io/ioutil"
-	"net/http"
-	"sync"
-	"time"
 )
 
 const (
@@ -178,6 +179,7 @@ func (sr *Runner) Stop() {
 }
 
 func (sr *Runner) getChecks(maxChecks int, timeout int) []stalker.Check {
+	log.Debugln("Getting checks off queue")
 	checks := make([]stalker.Check, 0)
 	expireTime := time.Now().Add(3 * time.Second).Unix()
 	for len(checks) <= maxChecks {
@@ -193,6 +195,7 @@ func (sr *Runner) getChecks(maxChecks int, timeout int) []stalker.Check {
 				log.Errorln("Error grabbing check from queue:", err.Error())
 				break
 			} else {
+				log.Debugln("redis result:", err)
 				continue
 			}
 		}
@@ -249,7 +252,7 @@ func (sr *Runner) flapIncr(flapID string) {
 }
 
 func (sr *Runner) logStateChange(check stalker.Check) {
-	log.Debug("log state change")
+	log.Debug("Triggering state change for", check)
 	query := stalker.StateLogEntry{
 		Hostname: check.Hostname,
 		Check:    check.Check,
@@ -309,7 +312,7 @@ func (sr *Runner) HostFlood(hostname string) bool {
 
 // GlobalFlood determines whether a global flood event is in progress
 func (sr *Runner) GlobalFlood() bool {
-	log.Debug("global flood")
+	log.Debug("Checking for global flood")
 	var count int
 	cursor, err := r.Db(STALKERDB).Table("notifications").Filter(r.Row.Field("ts").Gt(int64(time.Now().Unix() - sr.conf.floodWindow))).Count().Run(sr.rsess)
 	if err != nil {
@@ -467,6 +470,7 @@ func (sr *Runner) stateChange(check stalker.Check, previousStatus bool) {
 }
 
 func (sr *Runner) runCheck(check stalker.Check) {
+	log.Debugln("Run check:", check)
 	defer sr.swg.Done()
 	var err error
 	name := check.Check
@@ -524,5 +528,7 @@ func (sr *Runner) runCheck(check stalker.Check) {
 			return
 		}
 	}
+
+	log.Debugln("done check", check)
 	sr.stateChange(updatedCheck, previousStatus)
 }
