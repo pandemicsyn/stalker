@@ -3,12 +3,13 @@ package manager
 import (
 	//"fmt"
 	"encoding/json"
+	"sync"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
 	"github.com/garyburd/redigo/redis"
 	"github.com/pandemicsyn/stalker/go/stalker"
-	"sync"
-	"time"
 )
 
 const (
@@ -30,7 +31,7 @@ type Manager struct {
 // Opts config options for the manager.
 type Opts struct {
 	RedisConnection        redis.Conn
-	RethinkSession         *r.Session
+	RethinkConnection      *r.Session
 	PauseFilePath          string
 	ShuffleTime            int
 	ScanInterval           int
@@ -41,7 +42,7 @@ type Opts struct {
 func New(conf string, opts Opts) *Manager {
 	sm := &Manager{
 		rconn:                  opts.RedisConnection,
-		rsess:                  opts.RethinkSession,
+		rsess:                  opts.RethinkConnection,
 		pauseFile:              opts.PauseFilePath,
 		shuffleT:               opts.ShuffleTime,
 		scanInterval:           time.Duration(opts.ScanInterval) * time.Second,
@@ -125,11 +126,10 @@ func (sm *Manager) queueLength() int {
 
 // place a check on the queue
 func (sm *Manager) enqueueCheck(check stalker.Check) {
-	log.Debugln("Enqueue", check.Check)
 	cb, err := json.Marshal(check)
 	stalker.OnlyLogIf(err)
 	res, err := sm.rconn.Do("RPUSH", "worker1", cb)
-	log.Debugln("on queue:", res)
+	log.Debugln("Checks now on queue:", res)
 	stalker.OnlyLogIf(err)
 }
 
@@ -140,7 +140,7 @@ func (sm *Manager) Sanitize(flushQueued bool) {
 		_, err := sm.rconn.Do("DEL", "worker1")
 		stalker.OnlyLogIf(err)
 	}
-	log.Debugln("sanitize")
+	log.Debugln("Sanatizing DB")
 	rquery := r.Db(STALKERDB).Table("checks").Filter(r.Row.Field("pending").Eq(true))
 	rquery = rquery.Update(map[string]bool{"pending": false})
 	res, err := rquery.RunWrite(sm.rsess)
@@ -152,8 +152,8 @@ func (sm *Manager) Sanitize(flushQueued bool) {
 
 // scan the notifications db for checks older than our expiration time and remove them. This will allow them be re-alerted on.
 func (sm *Manager) expireNotifications() {
-	log.Debugln("expire notifications")
-	_, err := r.Db(STALKERDB).Table("notifications").Filter(r.Row.Field("ts").Lt(time.Now().Unix() - sm.notificationExpiration)).Delete().Run(sm.rsess)
+	log.Debugln("Expiring notifications")
+	err := r.Db(STALKERDB).Table("notifications").Filter(r.Row.Field("ts").Lt(time.Now().Unix() - sm.notificationExpiration)).Delete().Exec(sm.rsess)
 	if err != nil {
 		log.Errorln("Error deleting expired notifications:", err.Error())
 	}
@@ -163,7 +163,7 @@ func (sm *Manager) expireNotifications() {
 // mark them as pending and then drop'em on the q for the runner.
 func (sm *Manager) scanChecks() {
 	sm.pauseIfAsked()
-	//i := sm.queueLength()
+	log.Debugln("Scanning for checks past due")
 	qcount := 0
 	rquery := r.Db(STALKERDB).Table("checks").Between(0, time.Now().Unix(), r.BetweenOpts{Index: "next", RightBound: "closed"})
 	rquery = rquery.Filter(r.Row.Field("pending").Eq(false).And(r.Row.Field("suspended").Eq(false)))
@@ -175,7 +175,6 @@ func (sm *Manager) scanChecks() {
 	}
 	defer cursor.Close()
 	result := stalker.Check{}
-
 	for cursor.Next(&result) {
 		_, err := r.Db(STALKERDB).Table("checks").Get(result.ID).Update(map[string]bool{"pending": true}).RunWrite(sm.rsess)
 		stalker.OnlyLogIf(err)

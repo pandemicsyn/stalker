@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/pandemicsyn/stalker/go",
-	"GoVersion": "go1.3.3",
+	"GoVersion": "go1.4.2",
 	"Packages": [
 		"./..."
 	],
@@ -59,6 +59,14 @@
 		{
 			"ImportPath": "github.com/golang/protobuf/proto",
 			"Rev": "655cdfa588ea190e901bc5590e65d5621688847c"
+		},
+		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "215affda49addc4c8ef7e2534915df2c8c35c6cd"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "660d31f8602b95058fed6833debf113e85350868"
 		},
 		{
 			"ImportPath": "github.com/kr/pretty",
