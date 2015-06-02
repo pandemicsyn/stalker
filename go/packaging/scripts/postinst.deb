@@ -12,8 +12,8 @@ case "$1" in
     ;;
 esac
 
-if [ -f /etc/stalker/stalkerd.toml ]; then
-  chmod 600 /etc/stalker/stalkerd.toml
+if [ -f /etc/stalker/stalkerd.toml-sample ]; then
+  chmod 600 /etc/stalker/stalkerd.toml-sample
 fi
 
 dist() {

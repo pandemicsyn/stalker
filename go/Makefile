@@ -38,7 +38,7 @@ deb:
 		-m "Florian Hines <syn@ronin.io>" \
 		--license "Apache License 2.0" \
 		--vendor "stalker" -a amd64 \
-		--config-files /etc/stalker/stalkerd.toml \
+		--config-files /etc/stalker/stalkerd.toml-sample \
 		packaging/root/=/
 	cp packaging/output/stalkerd-$(VERSION)_amd64.deb packaging/output/stalkerd.deb.$(SHA)
 
