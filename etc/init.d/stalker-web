@@ -10,7 +10,7 @@
 ### END INIT INFO
 
 USER=www-data
-PIDFILE="/var/run/stalker/stalker-web.pid"
+PIDFILE="/var/run/stalker-web.pid"
 RETVAL=0
 
 # source function library

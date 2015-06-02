@@ -21,7 +21,7 @@ stop() {
   if pidof /usr/local/bin/stalkerd >/dev/null; then
     kill "$(pid)"
   else
-    echo "stalkerd not runned"
+    echo "stalkerd not running"
     exit 1
   fi
 }
