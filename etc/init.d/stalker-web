@@ -10,7 +10,8 @@
 ### END INIT INFO
 
 USER=www-data
-PIDFILE="/var/run/stalker-web.pid"
+RUNDIR=/var/run/stalker-web
+PIDFILE=$RUNDIR/stalker-web.pid
 RETVAL=0
 
 # source function library
@@ -21,7 +22,11 @@ start()
     echo "Starting $NAME."
     # export PYTHONPATH=$CONFDIR;
     # cd $CONFDIR/$NAME;
-    su $USER -c "/usr/bin/stalker-web -P $PIDFILE -G >/dev/null"
+    mkdir -p $RUNDIR
+    mkdir -p /var/log/stalker-web
+    chown www-data:www-data $RUNDIR /var/log/stalker-web
+    chmod 755 $RUNDIR
+    su $USER -c "/usr/bin/stalker-web -d -P $PIDFILE -G"
     if [ $? -eq 0 ]; then
         echo "OK"
     else
