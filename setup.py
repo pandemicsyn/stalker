@@ -7,7 +7,7 @@ from stalker import __version__ as version
 
 install_requires = []
 
-name = "stalker"
+name = "stalker-agent"
 
 data_files = [('share/doc/stalker',
                ['README.md', 'INSTALL',
