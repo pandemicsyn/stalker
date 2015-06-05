@@ -1,5 +1,6 @@
 import os
 import json
+import ast
 from random import randint
 from eventlet import wsgi, sleep
 from eventlet.green import subprocess, urllib2
@@ -41,6 +42,14 @@ class StalkerAgent(object):
         self._build_check_list()
         self.logger.info('Found checks: %s' % self.scripts)
 
+    def _parse_env(self, check, string):
+        try:
+            return ast.literal_eval(string)
+        except (SyntaxError, ValueError), e :
+            self.logger.error("Error while parsing env "
+                              "'%s' for '%s'" % (string, check))
+            return dict()
+
     def _build_check_list(self):
         """Build our list of checks and their config"""
         self._get_scripts_from_conf()
@@ -74,6 +83,7 @@ class StalkerAgent(object):
                 continue
             cmd = self.fullconf[check].get('cmd')
             args = self.fullconf[check].get('args') or ''
+            env = _parse_env(check, self.fullconf[check].get('env'))
             interval = int(self.fullconf[check].get('interval',
                                                     self.default_interval))
             priority = int(self.fullconf[check].get('priority',
@@ -85,7 +95,7 @@ class StalkerAgent(object):
                 self.logger.warning('%s cmd not executable or not file' % cmd)
             else:
                 self.logger.info('found %s check' % cmd)
-                self.scripts[check] = {'cmd': cmd, 'args': args,
+                self.scripts[check] = {'cmd': cmd, 'args': args, 'env': env,
                                        'interval': interval,
                                        'priority': priority,
                                        'follow_up': follow_up}
@@ -132,10 +142,12 @@ class StalkerAgent(object):
     def single(self, env, start_response):
         """Process a single a check call"""
         script = env['PATH_INFO'].strip('/')
+        environ = os.environ.copy()
+        environ.update(self.scripts[script]['env'])
         p = subprocess.Popen("%s %s" % (self.scripts[script]['cmd'],
                                         self.scripts[script]['args']),
                              shell=True, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+                             stderr=subprocess.PIPE, env=environ)
         stouterr = p.communicate()
         status = {'%s' % script: {'status': p.returncode,
                                   'out': stouterr[0].strip(),
