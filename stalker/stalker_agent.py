@@ -44,11 +44,12 @@ class StalkerAgent(object):
 
     def _parse_env(self, check, string):
         try:
-            return ast.literal_eval(string)
+            if string:
+                return ast.literal_eval(string)
         except (SyntaxError, ValueError), e :
             self.logger.error("Error while parsing env "
                               "'%s' for '%s'" % (string, check))
-            return dict()
+        return dict()
 
     def _build_check_list(self):
         """Build our list of checks and their config"""
@@ -83,7 +84,7 @@ class StalkerAgent(object):
                 continue
             cmd = self.fullconf[check].get('cmd')
             args = self.fullconf[check].get('args') or ''
-            env = _parse_env(check, self.fullconf[check].get('env'))
+            env = self._parse_env(check, self.fullconf[check].get('env'))
             interval = int(self.fullconf[check].get('interval',
                                                     self.default_interval))
             priority = int(self.fullconf[check].get('priority',
