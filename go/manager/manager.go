@@ -18,7 +18,7 @@ const (
 )
 
 type Manager struct {
-	rconn                  redis.Conn
+	rpool                  *redis.Pool
 	rsess                  *r.Session
 	pauseFile              string
 	shuffleT               int
@@ -30,7 +30,7 @@ type Manager struct {
 
 // Opts config options for the manager.
 type Opts struct {
-	RedisConnection        redis.Conn
+	RedisAddr              string
 	RethinkConnection      *r.Session
 	PauseFilePath          string
 	ShuffleTime            int
@@ -41,7 +41,7 @@ type Opts struct {
 // New creates a new instance of Manager
 func New(conf string, opts Opts) *Manager {
 	sm := &Manager{
-		rconn:                  opts.RedisConnection,
+		rpool:                  newRedisPool(opts.RedisAddr),
 		rsess:                  opts.RethinkConnection,
 		pauseFile:              opts.PauseFilePath,
 		shuffleT:               opts.ShuffleTime,
@@ -52,6 +52,20 @@ func New(conf string, opts Opts) *Manager {
 	}
 	sm.swg.Add(1)
 	return sm
+}
+
+func newRedisPool(server string) *redis.Pool {
+	return &redis.Pool{
+		MaxIdle:     3,
+		IdleTimeout: 60 * time.Second,
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", server)
+			if err != nil {
+				return nil, err
+			}
+			return c, err
+		},
+	}
 }
 
 // Start the manager loop.
@@ -117,7 +131,9 @@ func (sm *Manager) pauseIfAsked() {
 }
 
 func (sm *Manager) queueLength() int {
-	n, err := redis.Int(sm.rconn.Do("LLEN", "worker1"))
+	rconn := sm.rpool.Get()
+	defer rconn.Close()
+	n, err := redis.Int(rconn.Do("LLEN", "worker1"))
 	if err != nil {
 		log.Panic(err)
 	}
@@ -128,16 +144,22 @@ func (sm *Manager) queueLength() int {
 func (sm *Manager) enqueueCheck(check stalker.Check) {
 	cb, err := json.Marshal(check)
 	stalker.OnlyLogIf(err)
-	res, err := sm.rconn.Do("RPUSH", "worker1", cb)
+	rconn := sm.rpool.Get()
+	defer rconn.Close()
+	res, err := rconn.Do("RPUSH", "worker1", cb)
 	log.Debugln("Checks now on queue:", res)
-	stalker.OnlyLogIf(err)
+	if err != nil {
+		log.Warningln("error pushing check on queue:", err)
+	}
 }
 
 // Sanitize scan the checks db for checks marked pending but not actually
 // in progress. i.e. redis died, or services where kill -9'd.
 func (sm *Manager) Sanitize(flushQueued bool) {
 	if flushQueued {
-		_, err := sm.rconn.Do("DEL", "worker1")
+		rconn := sm.rpool.Get()
+		defer rconn.Close()
+		_, err := rconn.Do("DEL", "worker1")
 		stalker.OnlyLogIf(err)
 	}
 	log.Debugln("Sanatizing DB")

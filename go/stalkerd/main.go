@@ -9,7 +9,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
-	"github.com/garyburd/redigo/redis"
 	sm "github.com/pandemicsyn/stalker/go/manager"
 	sr "github.com/pandemicsyn/stalker/go/runner"
 	"github.com/spf13/viper"
@@ -110,23 +109,12 @@ func main() {
 	if v.GetBool("manager") {
 		log.Warningln("starting manager")
 		managerConf := sm.Opts{PauseFilePath: PauseFile, ShuffleTime: ShuffleT, NotificationExpiration: v.GetInt("notifications_expiration")}
-		managerConf.RedisConnection, err = redis.Dial("tcp", v.GetString("redisaddr"))
+		managerConf.RedisAddr = v.GetString("redisaddr")
 		if err != nil {
 			log.Panic(err)
 		}
 		managerConf.ScanInterval = 2
 		managerConf.RethinkConnection = rethinksess
-		/*
-			managerConf.RethinkConnection, err = r.Connect(r.ConnectOpts{
-				Address:       v.GetString("rethinkaddr"),
-				Database:      v.GetString("rethinkdb"),
-				AuthKey:       v.GetString("rethinkkey"),
-				MaxIdle:       10,
-				MaxOpen:       50,
-				Timeout:       5 * time.Second,
-				DiscoverHosts: false,
-			})*/
-
 		manager = sm.New("something", managerConf)
 		go manager.Start()
 	}
