@@ -1,5 +1,6 @@
 go/stalkerd/stalkerd
 env/*
+deb_dist/*
 *.py[cod]
 mongo.log*
 mongodb-linux*

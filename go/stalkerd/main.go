@@ -106,6 +106,17 @@ func main() {
 		log.Fatalln(err.Error())
 	}
 
+	var runner *sr.Runner
+	if v.GetBool("runner") {
+		log.Warningln("starting runner")
+		runnerConf := sr.Opts{}
+		runnerConf.RedisAddr = v.GetString("redisaddr")
+		runnerConf.ViperConf = v
+		runnerConf.RethinkConnection = rethinksess
+		runner = sr.New("something", runnerConf)
+		go runner.Start()
+	}
+
 	var manager *sm.Manager
 	if v.GetBool("manager") {
 		log.Warningln("starting manager")
@@ -116,30 +127,8 @@ func main() {
 		}
 		managerConf.ScanInterval = 2
 		managerConf.RethinkConnection = rethinksess
-		/*
-			managerConf.RethinkConnection, err = r.Connect(r.ConnectOpts{
-				Address:       v.GetString("rethinkaddr"),
-				Database:      v.GetString("rethinkdb"),
-				AuthKey:       v.GetString("rethinkkey"),
-				MaxIdle:       10,
-				MaxOpen:       50,
-				Timeout:       5 * time.Second,
-				DiscoverHosts: false,
-			})*/
-
-		manager = sm.New("something", managerConf)
+		manager = sm.New("something", managerConf, runner.WorkChan)
 		go manager.Start()
-	}
-
-	var runner *sr.Runner
-	if v.GetBool("runner") {
-		log.Warningln("starting runner")
-		runnerConf := sr.Opts{}
-		runnerConf.RedisAddr = v.GetString("redisaddr")
-		runnerConf.ViperConf = v
-		runnerConf.RethinkConnection = rethinksess
-		runner = sr.New("something", runnerConf)
-		go runner.Start()
 	}
 
 	ch := make(chan os.Signal)

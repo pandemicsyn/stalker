@@ -2,7 +2,7 @@ package manager
 
 import (
 	//"fmt"
-	"encoding/json"
+
 	"sync"
 	"time"
 
@@ -25,6 +25,7 @@ type Manager struct {
 	scanInterval           time.Duration
 	notificationExpiration int64
 	stopChan               chan bool
+	workChan               chan *stalker.Check
 	swg                    *sync.WaitGroup
 }
 
@@ -39,7 +40,7 @@ type Opts struct {
 }
 
 // New creates a new instance of Manager
-func New(conf string, opts Opts) *Manager {
+func New(conf string, opts Opts, workChan chan *stalker.Check) *Manager {
 	sm := &Manager{
 		rconn:                  opts.RedisConnection,
 		rsess:                  opts.RethinkConnection,
@@ -48,6 +49,7 @@ func New(conf string, opts Opts) *Manager {
 		scanInterval:           time.Duration(opts.ScanInterval) * time.Second,
 		notificationExpiration: int64(opts.NotificationExpiration),
 		stopChan:               make(chan bool),
+		workChan:               workChan,
 		swg:                    &sync.WaitGroup{},
 	}
 	sm.swg.Add(1)
@@ -88,18 +90,15 @@ func (sm *Manager) startupShuffle() {
 	var err error
 	rquery := r.Db(STALKERDB).Table("checks").Between(0, time.Now().Unix(), r.BetweenOpts{Index: "next", RightBound: "closed"})
 	cursor, err := rquery.Run(sm.rsess)
-	defer cursor.Close()
 	if err != nil {
 		log.Panic(err)
 	}
-
+	defer cursor.Close()
 	result := stalker.Check{}
-
 	for cursor.Next(&result) {
 		_, err := r.Db(STALKERDB).Table("checks").Get(result.ID).Update(map[string]int{"next": int(time.Now().Unix()) + stalker.RandIntInRange(1, sm.shuffleT)}).RunWrite(sm.rsess)
 		stalker.OnlyLogIf(err)
 	}
-
 	stalker.OnlyLogIf(cursor.Err())
 }
 
@@ -126,11 +125,7 @@ func (sm *Manager) queueLength() int {
 
 // place a check on the queue
 func (sm *Manager) enqueueCheck(check stalker.Check) {
-	cb, err := json.Marshal(check)
-	stalker.OnlyLogIf(err)
-	res, err := sm.rconn.Do("RPUSH", "worker1", cb)
-	log.Debugln("Checks now on queue:", res)
-	stalker.OnlyLogIf(err)
+	sm.workChan <- &check
 }
 
 // Sanitize scan the checks db for checks marked pending but not actually

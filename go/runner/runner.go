@@ -11,7 +11,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	r "github.com/dancannon/gorethink"
-	"github.com/garyburd/redigo/redis"
+	"github.com/pandemicsyn/fcache"
 	"github.com/pandemicsyn/stalker/go/notifications"
 	"github.com/pandemicsyn/stalker/go/stalker"
 	"github.com/spf13/viper"
@@ -26,10 +26,11 @@ const (
 // Runner manages running checks/alerting/flap detection etc.
 type Runner struct {
 	conf           *runnerConf
-	rpool          *redis.Pool
 	rsess          *r.Session
 	stopChan       chan bool
+	WorkChan       chan *stalker.Check
 	swg            *sync.WaitGroup
+	cache          *fcache.FCache
 	checkTransport *http.Transport
 	checkClient    *http.Client
 	twilio         *notifications.TwilioNotification
@@ -55,6 +56,8 @@ type runnerConf struct {
 	alertThreshold             int
 	workerQueue                string
 	checkKey                   string
+	cacheInitSize              int
+	workChanSize               int
 	twilioEnabled              bool
 	twsid                      string
 	twtoken                    string
@@ -64,25 +67,6 @@ type runnerConf struct {
 	pagerDutyPriOneKey         string
 	pagerDutyPriTwoKey         string
 	pagerDutyIncidentKeyPrefix string
-}
-
-func newRedisPool(server string) *redis.Pool {
-	return &redis.Pool{
-		MaxIdle:     3,
-		IdleTimeout: 60 * time.Second,
-		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", server)
-			if err != nil {
-				return nil, err
-			}
-			/*
-			   if _, err := c.Do("AUTH", password); err != nil {
-			       c.Close()
-			       return nil, err
-			   } */
-			return c, err
-		},
-	}
 }
 
 func loadConfig(v *viper.Viper) *runnerConf {
@@ -96,6 +80,9 @@ func loadConfig(v *viper.Viper) *runnerConf {
 	v.SetDefault("alert_threshold", 3)
 	v.SetDefault("worker_id", "worker1")
 	v.SetDefault("check_key", "canhazstatus")
+	v.SetDefault("cache_init_size", 1024)
+	v.SetDefault("work_chan_size", 256)
+
 	conf := &runnerConf{}
 	conf.checkTimeout = v.GetDuration("check_timeout")
 	conf.hostWindow = int64(v.GetInt("host_window"))
@@ -107,6 +94,8 @@ func loadConfig(v *viper.Viper) *runnerConf {
 	conf.alertThreshold = v.GetInt("alert_threshold")
 	conf.workerQueue = v.GetString("worker_id")
 	conf.checkKey = v.GetString("check_key")
+	conf.cacheInitSize = v.GetInt("cache_init_size")
+	conf.workChanSize = v.GetInt("work_chan_size")
 
 	//twilio config
 	v.SetDefault("twilio_enable", false)
@@ -130,11 +119,12 @@ func loadConfig(v *viper.Viper) *runnerConf {
 func New(conf string, opts Opts) *Runner {
 	sr := &Runner{
 		conf:     loadConfig(opts.ViperConf),
-		rpool:    newRedisPool(opts.RedisAddr),
 		rsess:    opts.RethinkConnection,
 		stopChan: make(chan bool),
 		swg:      &sync.WaitGroup{},
 	}
+	sr.WorkChan = make(chan *stalker.Check, sr.conf.workChanSize)
+	sr.cache = fcache.New(sr.conf.cacheInitSize)
 	sr.checkTransport = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 		TLSHandshakeTimeout:   10 * time.Second,
@@ -159,16 +149,13 @@ func (sr *Runner) Start() {
 	for {
 		select {
 		case <-sr.stopChan:
+			//TODO: snapshot cache
 			return
-		default:
-		}
-		checks := sr.getChecks(1024, 2)
-		for _, v := range checks {
+		case check := <-sr.WorkChan:
 			sr.swg.Add(1)
-			go sr.runCheck(v)
+			go sr.runCheck(check)
 		}
 	}
-
 }
 
 // Stop shutsdown the runner gracefully'ish
@@ -176,39 +163,6 @@ func (sr *Runner) Stop() {
 	close(sr.stopChan)
 	log.Warn("runner shutting down")
 	sr.swg.Wait()
-}
-
-func (sr *Runner) getChecks(maxChecks int, timeout int) []stalker.Check {
-	log.Debugln("Getting checks off queue")
-	checks := make([]stalker.Check, 0)
-	expireTime := time.Now().Add(3 * time.Second).Unix()
-	for len(checks) <= maxChecks {
-		//we've exceeded our try time
-		if time.Now().Unix() > expireTime {
-			break
-		}
-		rconn := sr.rpool.Get()
-		defer rconn.Close()
-		res, err := redis.Values(rconn.Do("BLPOP", sr.conf.workerQueue, timeout))
-		if err != nil {
-			if err != redis.ErrNil {
-				log.Errorln("Error grabbing check from queue:", err.Error())
-				break
-			} else {
-				log.Debugln("redis result:", err)
-				continue
-			}
-		}
-		var rb []byte
-		res, err = redis.Scan(res, nil, &rb)
-		var check stalker.Check
-		if err := json.Unmarshal(rb, &check); err != nil {
-			log.Errorln("Error decoding check from queue to json:", err.Error())
-			break
-		}
-		checks = append(checks, check)
-	}
-	return checks
 }
 
 // TODO: Need to set deadlines
@@ -242,12 +196,8 @@ func (sr *Runner) execCheck(url string) (map[string]stalker.CheckOutput, error) 
 }
 
 func (sr *Runner) flapIncr(flapID string) {
-	rconn := sr.rpool.Get()
-	defer rconn.Close()
-	rconn.Send("MULTI")
-	rconn.Send("INCR", flapID)
-	rconn.Send("EXPIRE", flapID, sr.conf.flapWindow)
-	_, err := rconn.Do("EXEC")
+	sr.cache.IncrementInt(flapID, 1)
+	err := sr.cache.UpdateTTL(flapID, time.Duration(sr.conf.flapWindow)*time.Second)
 	stalker.OnlyLogIf(err)
 }
 
@@ -335,13 +285,14 @@ func (sr *Runner) GlobalFlood() bool {
 
 // Flapping determines whether a given flapID is actually flapping.
 func (sr *Runner) Flapping(flapID string) bool {
-	rconn := sr.rpool.Get()
-	defer rconn.Close()
-	count, err := redis.Int(rconn.Do("GET", flapID))
-	if err != nil {
-		if err != redis.ErrNil {
-			log.Errorln("Redis error while checking", flapID, " flap state:", err.Error())
-		}
+	v, found := sr.cache.Get(flapID)
+	if !found {
+		return false
+	}
+	count, ok := v.(int)
+	if !ok {
+		log.Errorln("flapid value not an int:", flapID, v)
+		return false
 	}
 	log.Debugln(flapID, "flap count:", count)
 	if count >= sr.conf.flapThreshold {
@@ -469,7 +420,7 @@ func (sr *Runner) stateChange(check stalker.Check, previousStatus bool) {
 	}
 }
 
-func (sr *Runner) runCheck(check stalker.Check) {
+func (sr *Runner) runCheck(check *stalker.Check) {
 	log.Debugln("Run check:", check)
 	defer sr.swg.Done()
 	var err error
@@ -490,7 +441,7 @@ func (sr *Runner) runCheck(check stalker.Check) {
 		if previousStatus == false {
 			sr.flapIncr(flapid)
 		}
-		updatedCheck = check
+		updatedCheck = *check
 		updatedCheck.Pending = false
 		updatedCheck.Status = true
 		updatedCheck.Flapping = sr.Flapping(flapid)
@@ -511,7 +462,7 @@ func (sr *Runner) runCheck(check stalker.Check) {
 		if previousStatus == true {
 			sr.flapIncr(flapid)
 		}
-		updatedCheck = check
+		updatedCheck = *check
 		updatedCheck.Pending = false
 		updatedCheck.Status = false
 		updatedCheck.Flapping = sr.Flapping(flapid)

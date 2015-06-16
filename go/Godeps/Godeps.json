@@ -90,6 +90,10 @@
 			"Rev": "442e588f213303bec7936deba67901f8fc8f18b1"
 		},
 		{
+			"ImportPath": "github.com/pandemicsyn/fcache",
+			"Rev": "a9915bddd3bc7c9d4cb34610b4349fe87e9914cd"
+		},
+		{
 			"ImportPath": "github.com/spf13/cast",
 			"Rev": "2c4fdb5416dd394ff5e61fcdb8eb4f09e46a2ed8"
 		},

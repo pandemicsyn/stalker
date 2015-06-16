@@ -1,0 +1,17 @@
+PASS
+BenchmarkFCacheGet	30000000	        44.2 ns/op
+BenchmarkFCachSetGetExpired	 1000000	      1231 ns/op
+BenchmarkFCacheConcurrentGet	30000000	        44.7 ns/op
+BenchmarkFCacheIncrementInt	20000000	       115 ns/op
+BenchmarkFCacheIncrementFloat64	 5000000	       273 ns/op
+BenchmarkFCacheSet	 5000000	       287 ns/op
+BenchmarkFCacheSetCast	 5000000	       288 ns/op
+BenchmarkRWMutexMapSet	20000000	        64.8 ns/op
+BenchmarkFCacheSetDelete	 5000000	       369 ns/op
+BenchmarkRWMutexMapSetDelete	10000000	       134 ns/op
+BenchmarkFCacheConcurrentSet	 5000000	       311 ns/op
+BenchmarkFCacheSetGrowing	 1000000	      1088 ns/op
+BenchmarkFCacheSetPreAllocated	 5000000	       364 ns/op
+BenchmarkFCacheSetDeleteGrowing	 1000000	      1052 ns/op
+BenchmarkFCacheSetDeletePreAllocated	 3000000	       415 ns/op
+ok  	github.com/pandemicsyn/fcache	25.178s

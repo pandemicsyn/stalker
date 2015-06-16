@@ -37,7 +37,7 @@ start()
 stop()
 {
     echo "Stopping $NAME"
-    kill -QUIT `cat $PIDFILE`
+    kill -SIGKILL `cat $PIDFILE`
     if [ $? -eq 0 ]; then
         rm $PIDFILE
         echo "OK"

@@ -40,7 +40,7 @@ app.config['THEMES'] = ['cosmo', 'cerulean', 'cyborg', 'slate', 'spacelab',
 app.config['CACHE_TTL'] = 10
 app.config['GRAPHITE_ENABLE'] = False
 app.config['GRAPHITE_HOST'] = 'http://localhost/'
-app.config['LOG_FILE'] = '/var/log/stalker/stalkerweb.log'
+app.config['LOG_FILE'] = '/var/log/stalker-web/stalkerweb.log'
 app.config['LOG_NAME'] = 'stalkerweb'
 app.config['LOG_COUNT'] = 7
 
