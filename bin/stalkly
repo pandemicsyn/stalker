@@ -43,6 +43,8 @@ class Stalkly(object):
         try:
             alerting = self.json_request('/checks/state/%s' % state)[state]
             for alert in alerting:
+                if alert.has_key('_id'):
+                    alert['id'] = alert.pop('_id')
                 alert['cluster'] = self.local_cluster
             self.clusters = self.json_request('/global/clusters')['clusters']
             for cluster in self.clusters.keys():
@@ -51,6 +53,8 @@ class Stalkly(object):
                         '/global/%s/checks/state/%s' %
                         (cluster, state))[cluster][state]
                     for alert in remote_alerting:
+                        if alert.has_key('_id'):
+                            alert['id'] = alert.pop('_id')
                         alert['cluster'] = cluster
                     alerting.extend(remote_alerting)
                 except Exception as e:
