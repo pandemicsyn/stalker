@@ -183,13 +183,13 @@ class Stalkly(object):
                 selected += 1
             elif key in (ord('k'), curses.KEY_UP):
                 selected -= 1
-            elif key == ord('g'):
+            elif key in (ord('g'), curses.KEY_HOME):
                 selected = 0
-            elif key == ord('G'):
+            elif key in (ord('G'), curses.KEY_END):
                 selected = len(alerting) - 1
-            elif key == curses.KEY_NPAGE:
+            elif key in (ord(curses.ascii.ctrl('d')), curses.KEY_NPAGE):
                 selected += height - 2
-            elif key == curses.KEY_PPAGE:
+            elif key in (ord(curses.ascii.ctrl('u')), curses.KEY_PPAGE):
                 selected -= height - 2
             elif key in (ord('\n'), curses.KEY_ENTER):
                 self.alertwindow(stdscr, alerting[selected])
