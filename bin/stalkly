@@ -43,6 +43,8 @@ class Stalkly(object):
         try:
             alerting = self.json_request('/checks/state/%s' % state)[state]
             for alert in alerting:
+                if alert.has_key('_id'):
+                    alert['id'] = alert.pop('_id')
                 alert['cluster'] = self.local_cluster
             self.clusters = self.json_request('/global/clusters')['clusters']
             for cluster in self.clusters.keys():
@@ -51,12 +53,14 @@ class Stalkly(object):
                         '/global/%s/checks/state/%s' %
                         (cluster, state))[cluster][state]
                     for alert in remote_alerting:
+                        if alert.has_key('_id'):
+                            alert['id'] = alert.pop('_id')
                         alert['cluster'] = cluster
                     alerting.extend(remote_alerting)
                 except Exception as e:
                     alerting.append({'cluster': cluster,
                                      'check': 'cluster_update',
-                                     'hostname': '*', '_id': cluster,
+                                     'hostname': '*', 'id': cluster,
                                      'out': str(e)})
                     pass
             self.clusters[self.local_cluster] = {'host': self.base_url,
@@ -65,42 +69,123 @@ class Stalkly(object):
             return alerting
         except Exception as e:
             return [{'cluster': 'all', 'check': 'update', 'hostname': '*',
-                     '_id': 'whatevs', 'out': str(e)}]
+                     'id': 'whatevs', 'out': str(e)}]
 
     def alertwindow(self, window, alert):
-        newwin = window.subwin(18, 80, 2, 0)
+        newwin = window.subwin(22, 80, 2, 0)
         newwin.keypad(True)
-        options = ('Do Nothing', 'Claim', 'Remove Claim', 'Suspend')
+        options = (
+                'Do nothing',
+                'Claim',
+                'Claim all alerts for this server',
+                'Remove claim',
+                'Remove claim for all alerts for this server',
+                'Recheck',
+                'Recheck all alerts for this server',
+                'Suspend',
+                'Remove check',
+                'Remove host'
+            )
         selected = 0
         while True:
             newwin.erase()
             newwin.box()
-            newwin.addstr(1, 1, ' Update Alert..')
+            newwin.addstr(1, 1,  "  Alert Operations")
             newwin.chgat(1, 1, 78, curses.A_BOLD | curses.color_pair(2))
-            newwin.addstr(3, 1, " %(cluster)s / %(hostname)s" % alert)
-            newwin.addnstr(4, 1, ' ' + alert['check'], 75)
+            newwin.addstr(3, 1,  "  Cluster:     " + alert['cluster'])
+            newwin.addstr(4, 1,  "  Host:        " + alert['hostname'])
+            newwin.addnstr(5, 1, "  Check:       " + alert['check'], 75)
+            newwin.addstr(6, 1,  "  Last update: " + time.strftime('%c',
+                                                   time.gmtime(alert['last'])))
+            newwin.addstr(7, 1,  "  Next check:  " + time.strftime('%c',
+                                                   time.gmtime(alert['next'])))
             newwin.addnstr(
-                5, 1, ' ' + alert['out'].split(';')[0].replace('\n', ' '), 75)
+                8, 1, '  Error:       ' + \
+                alert['out'].split(';')[0].replace('\n', ' '), 75)
             for y, option in enumerate(options):
-                newwin.addnstr(y + 8, 3, option, 75)
+                newwin.addnstr(y + 10, 3, option, 75)
                 if y == selected:
-                    newwin.chgat(y + 8, 3, 75, curses.A_REVERSE)
+                    newwin.chgat(y + 10, 3, 75, curses.A_REVERSE)
             key = newwin.getch()
             if key in (ord('\n'), curses.KEY_ENTER):
                 if options[selected] == 'Claim':
                     self.json_request(
-                        '/checks/id/' + alert['_id'] + '/owner',
-                        'POST', {'owner': self.username}, alert['cluster'])
+                            '/checks/id/' + alert['id'] + '/owner',
+                            'POST', {'owner': self.username}, alert['cluster']
+                        )
                     alert['owner'] = self.username
+
+                elif options[selected] == 'Claim all alerts for this server':
+                    server_alerts = self.json_request(
+                            '/checks/host/'+ alert['hostname'],
+                            'GET', {}, alert['cluster']
+                        )
+                    for server_alert in server_alerts['checks']:
+                        if server_alert.has_key('_id'):
+                            server_alert['id'] = server_alert.pop('_id')
+                        self.json_request(
+                                '/checks/id/' + server_alert['id'] + '/owner',
+                                'POST', {'owner': self.username},
+                                alert['cluster']
+                            )
+
                 elif options[selected] == 'Remove Claim':
-                    self.json_request('/checks/id/' + alert['_id'] + '/owner',
+                    self.json_request('/checks/id/' + alert['id'] + '/owner',
                                       'DELETE', {}, alert['cluster'])
                     alert['owner'] = ''
+
+                elif options[selected] == 'Remove claim for all alerts for this server':
+                    server_alerts = self.json_request(
+                            '/checks/host/'+ alert['hostname'],
+                            'GET', {}, alert['cluster']
+                        )
+                    for server_alert in server_alerts['checks']:
+                        if server_alert.has_key('_id'):
+                            server_alert['id'] = server_alert.pop('_id')
+                        self.json_request(
+                                '/checks/id/' + server_alert['id'] + '/owner',
+                                'DELETE', {}, alert['cluster']
+                            )
+
+                elif options[selected] == 'Recheck':
+                    self.json_request(
+                            '/checks/id/' + alert['id'] + '/next',
+                            'POST', {"next": "now"}, alert['cluster']
+                        )
+
+                elif options[selected] == 'Recheck all alerts for this server':
+                    server_alerts = self.json_request(
+                            '/checks/host/'+ alert['hostname'],
+                            'GET', {}, alert['cluster']
+                        )
+                    for server_alert in server_alerts['checks']:
+                        if server_alert.has_key('_id'):
+                            server_alert['id'] = server_alert.pop('_id')
+                        self.json_request(
+                                '/checks/id/' + server_alert['id'] + '/next',
+                                'POST', {"next": "now"}, alert['cluster']
+                            )
+
                 elif options[selected] == 'Suspend':
                     self.json_request(
-                        '/checks/id/' + alert['_id'] + '/suspended',
-                        'POST', {'suspended': True}, alert['cluster'])
+                            '/checks/id/' + alert['id'] + '/suspended',
+                            'POST', {'suspended': True}, alert['cluster']
+                        )
+
+                elif options[selected] == 'Remove check':
+                    self.json_request(
+                            '/checks/id/' + alert['id'],
+                            'DELETE', {}, alert['cluster']
+                        )
+
+                elif options[selected] == 'Remove host':
+                    self.json_request(
+                            '/hosts/' + alert['hostname'],
+                            'DELETE', {}, alert['cluster']
+                        )
+
                 break
+
             elif key in (ord('k'), curses.KEY_UP):
                 selected = (selected - 1) % len(options)
             elif key in (ord('\t'), ord('j'), curses.KEY_DOWN):
@@ -118,7 +203,7 @@ class Stalkly(object):
         height, width = stdscr.getmaxyx()
         stdscr.timeout(2000)
         alerting = [{'cluster': '', 'hostname': '', 'check': '', 'out': '',
-                     '_id': -1}] * (height + 2)
+                     'id': -1}] * (height + 2)
         last_update = 0
         selected = 0
         start = 0
@@ -162,15 +247,15 @@ class Stalkly(object):
                     stdscr.chgat(height - 1, 0, width,
                                  curses.color_pair(1) | curses.A_BOLD)
                     stdscr.refresh()
-                    was_selected = alerting[selected]['_id']
+                    was_selected = alerting[selected]['id']
                     selected = 0
-                    was_start = alerting[start]['_id']
+                    was_start = alerting[start]['id']
                     start = 0
                     alerting = self.refresh_alerts()
                     for x, alert in enumerate(alerting):
-                        if alert['_id'] == was_selected:
+                        if alert['id'] == was_selected:
                             selected = x
-                        if alert['_id'] == was_start:
+                        if alert['id'] == was_start:
                             start = x
                     last_update = time.time()
                     break
@@ -187,9 +272,9 @@ class Stalkly(object):
                 selected = 0
             elif key == ord('G'):
                 selected = len(alerting) - 1
-            elif key == curses.KEY_NPAGE:
+            elif key in (ord(curses.ascii.ctrl('d')), curses.KEY_NPAGE):
                 selected += height - 2
-            elif key == curses.KEY_PPAGE:
+            elif key in (ord(curses.ascii.ctrl('u')), curses.KEY_PPAGE):
                 selected -= height - 2
             elif key in (ord('\n'), curses.KEY_ENTER):
                 self.alertwindow(stdscr, alerting[selected])
