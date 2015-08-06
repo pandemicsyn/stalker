@@ -109,7 +109,7 @@ class StalkerAgent(object):
         else:
             sconf = {}
         return {'cmd': os.path.join(self.script_dir, script_name),
-                'args': sconf.get('args', ''),
+                'args': sconf.get('args', ''), 'env': sconf.get('env', ''),
                 'interval': int(sconf.get('interval', self.default_interval)),
                 'priority': int(sconf.get('priority', self.default_priority)),
                 'follow_up': int(sconf.get('follow_up',
