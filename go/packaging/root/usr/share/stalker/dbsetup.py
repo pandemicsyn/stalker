@@ -3,6 +3,7 @@ stalkerd to operate"""
 
 import argparse
 import rethinkdb as r
+from rethinkdb.errors import ReqlDriverError
 
 def cliparse():
     """sets up and parses the cli arguments"""
@@ -21,7 +22,11 @@ def cliparse():
 
 def conn_rethinkdb(host, port):
     """connect to rethinkdb"""
-    r.connect(host, port).repl()
+    try:
+        r.connect(host, port).repl()
+    except ReqlDriverError as error:
+        print "Error connecting to RethinkDB:", error
+        exit(1)
 
 def get_dblist():
     """get list of databases in rethinkdb"""
@@ -45,8 +50,8 @@ def create_db(dbname):
     if dbname not in get_dblist():
         print r.db_create(dbname).run()
 
-def create_tables(dbname):
-    """create all necessary tables for stalkerd in database"""
+def create_table_indexes(dbname):
+    """create all necessary table indexes for stalkerd in database"""
     tables = get_tables(dbname)
     tables_and_indexes = {"hosts": ["hostname"],
                           "checks": ["in_maintenance", "next", "pending",
@@ -59,8 +64,9 @@ def create_tables(dbname):
     for table, indexes in tables_and_indexes.iteritems():
         if table not in tables:
             print r.db(dbname).table_create(table).run()
+        table_indexes = get_table_indexes(dbname, table)
         for index in indexes:
-            if index not in get_table_indexes(dbname, table):
+            if index not in table_indexes:
                 print r.db(dbname).table(table).index_create(index).run()
 
 def main():
@@ -70,7 +76,7 @@ def main():
     create_db(args.db)
     if args.drop:
         drop_tables(args.db)
-    create_tables(args.db)
+    create_table_indexes(args.db)
 
 if __name__ == "__main__":
     main()
