@@ -1,4 +1,5 @@
 go/stalkerd/stalkerd
+stalker/go/packaging/root/usr/local/bin/*
 env/*
 *.py[cod]
 mongo.log*
