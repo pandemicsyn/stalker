@@ -28,8 +28,7 @@ DAEMON_ARGS_STOP="--pid=$PIDFILE --conf=$CONF stop"
 case "$1" in
     start)
         echo -n "Starting $DESC: "
-        mkdir -p $RUNDIR
-        mkdir -p $LOGPATH 
+        mkdir -p $RUNDIR $LOGPATH 
         chown $USER:$GROUP $RUNDIR $LOGPATH
         chmod 755 $RUNDIR
         if start-stop-daemon --start --pidfile $PIDFILE --chuid $USER:$GROUP --exec $DAEMON -- $DAEMON_ARGS_START
