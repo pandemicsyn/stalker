@@ -19,6 +19,7 @@ NAME=stalker-agent
 DESC=stalker-agent
 RUNDIR=/var/run/stalker
 PIDFILE=$RUNDIR/stalker-agent.pid
+LOGPATH=/var/log/stalker
 DAEMON=/usr/bin/stalker-agent
 DAEMON_ARGS_START="--pid=$PIDFILE --conf=$CONF start"
 DAEMON_ARGS_STOP="--pid=$PIDFILE --conf=$CONF stop"
@@ -27,9 +28,8 @@ DAEMON_ARGS_STOP="--pid=$PIDFILE --conf=$CONF stop"
 case "$1" in
     start)
         echo -n "Starting $DESC: "
-        mkdir -p $RUNDIR
-        mkdir -p /var/log/stalker
-        chown nobody:nogroup $RUNDIR /var/log/stalker
+        mkdir -p $RUNDIR $LOGPATH 
+        chown $USER:$GROUP $RUNDIR $LOGPATH
         chmod 755 $RUNDIR
         if start-stop-daemon --start --pidfile $PIDFILE --chuid $USER:$GROUP --exec $DAEMON -- $DAEMON_ARGS_START
         then
