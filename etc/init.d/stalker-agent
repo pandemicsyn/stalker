@@ -30,7 +30,7 @@ case "$1" in
         echo -n "Starting $DESC: "
         mkdir -p $RUNDIR
         mkdir -p $LOGPATH 
-        chown $USER:$GROUP $RUNDIR /var/log/stalker
+        chown $USER:$GROUP $RUNDIR $LOGPATH
         chmod 755 $RUNDIR
         if start-stop-daemon --start --pidfile $PIDFILE --chuid $USER:$GROUP --exec $DAEMON -- $DAEMON_ARGS_START
         then
