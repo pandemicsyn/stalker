@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+""" main stalker-agent script """
 
 import sys
 import optparse
 from time import sleep
-from random import randint 
-from stalker.stalker_utils import readconf
-from stalker.stalker_agent import SADaemon, StalkerAgent
+from random import randint
+from stalkeragent.stalker_utils import readconf
+from stalkeragent.stalker_agent import SADaemon, StalkerAgent
 
 
 def run_server():
@@ -30,14 +31,14 @@ def run_server():
 
     if options.foreground:
         conf = readconf(options.conf)
-        sa = StalkerAgent(conf)
+        stalkeragent = StalkerAgent(conf)
         while 1:
-            notified = sa.notify_master()
+            notified = stalkeragent.notify_master()
             if notified:
                 break
             else:
                 sleep(randint(1, 10))
-        sa.start()
+        stalkeragent.start()
         sys.exit(0)
 
     if len(sys.argv) >= 1:
