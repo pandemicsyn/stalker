@@ -4,7 +4,7 @@ from eventlet.green.socket import getfqdn
 from flask import Flask
 import redis
 from stalkerweb.stutils import ObjectIDConverter
-from stalker.stalker_utils import get_logger
+from stalkerutils.stalkerutils import get_logger
 from flask_rethinkdb import RethinkDB
 
 

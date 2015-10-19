@@ -9,7 +9,7 @@ from random import randint
 from stalkerweb.auth import is_valid_login, login_required, remove_user
 from stalkerweb.stutils import jsonify, genPrimaryKey64
 from stalkerweb import app, rc, rdb
-from stalker.stalker_utils import get_logger
+from stalkerutils.stalkerutils import get_logger
 from flask.ext.wtf import Form, Required, TextField, PasswordField, \
     BooleanField
 from werkzeug.contrib.cache import RedisCache

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-""" setuptools for stalkeragent """
+""" setuptools for stalkerutils """
 
 from setuptools import setup, find_packages
-from stalkeragent import __version__ as version
+from stalkerutils import __version__ as version
 
 setup(
-    name='stalkeragent',
+    name='stalkerutils',
     version=version,
     author="Florian Hines",
     author_email="syn@ronin.io",
@@ -20,16 +20,10 @@ setup(
         'Environment :: No Input/Output (Daemon)',
     ],
     install_requires=[
-        'eventlet==0.17.4',
-        'greenlet==0.4.9',
-        'stalkerutils==2.0.2',
     ],
     include_package_data=True,
     zip_safe=False,
-    scripts=['bin/stalker-agent',],
-    data_files=[('share/doc/stalkeragent',
+    data_files=[('share/doc/stalkerutils',
                  ['README.md', 'INSTALL',
-                  'etc/stalker-agent.conf',
-                  'etc/init.d/stalker-agent',
                  ])]
 )

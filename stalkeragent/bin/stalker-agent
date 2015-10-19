@@ -5,7 +5,7 @@ import sys
 import optparse
 from time import sleep
 from random import randint
-from stalkeragent.stalker_utils import readconf
+from stalkerutils.stalkerutils import readconf
 from stalkeragent.stalker_agent import SADaemon, StalkerAgent
 
 
