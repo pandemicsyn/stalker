@@ -44,7 +44,7 @@ app.config['LOG_FILE'] = '/var/log/stalker/stalkerweb.log'
 app.config['LOG_NAME'] = 'stalkerweb'
 app.config['LOG_COUNT'] = 7
 
-app.config.from_envvar('STALKERWEB_CONFIG')
+app.config.from_envvar('STALKERWEB_CONFIG', silent=True)
 
 rc = _init_redis(app)
 rdb = RethinkDB(app)
