@@ -21,9 +21,6 @@ VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
 cache = RedisCache(host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'], default_timeout=app.config['CACHE_TTL'])
 
-logger = get_logger(app.config['LOG_NAME'],
-                    log_path=app.config['LOG_FILE'],
-                    count=app.config['LOG_COUNT'])
 
 
 class SignInForm(Form):
@@ -637,5 +634,8 @@ def help():
 
 
 if __name__ == '__main__':
+    logger = get_logger(app.config['LOG_NAME'],
+                        log_path=app.config['LOG_FILE'],
+                        count=app.config['LOG_COUNT'])
     debug = True
     app.run(host='0.0.0.0', debug=debug)

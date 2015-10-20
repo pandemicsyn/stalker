@@ -7,6 +7,10 @@ from stalkerweb.stutils import ObjectIDConverter
 from stalkerutils.stalkerutils import get_logger
 from flask_rethinkdb import RethinkDB
 
+#: Version information (major, minor, revision[, 'dev']).
+version_info = (2, 0, 2)
+#: Version string 'major.minor.revision'.
+version = __version__ = ".".join(map(str, version_info))
 
 def _init_redis(app):
     """Initializes Redis client from app config."""
