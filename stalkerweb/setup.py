@@ -21,6 +21,7 @@ setup(
     ],
     install_requires=[
         'stalkerutils==2.0.2',
+        'eventlet==0.17.4',
         'flask==0.10.1',
         'redis==2.10.3',
         'pymongo==3.0.3',

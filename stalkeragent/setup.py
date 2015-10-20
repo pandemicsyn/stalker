@@ -21,7 +21,6 @@ setup(
     ],
     install_requires=[
         'eventlet==0.17.4',
-        'greenlet==0.4.9',
         'stalkerutils==2.0.2',
     ],
     include_package_data=True,
