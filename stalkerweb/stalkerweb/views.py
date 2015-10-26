@@ -9,7 +9,6 @@ from random import randint
 from stalkerweb.auth import is_valid_login, login_required, remove_user
 from stalkerweb.stutils import jsonify, genPrimaryKey64
 from stalkerweb import app, rc, rdb
-from stalkerutils.stalkerutils import get_logger
 from flask.ext.wtf import Form
 from wtforms import TextField, PasswordField, BooleanField
 from wtforms.validators import Required
@@ -636,8 +635,5 @@ def help():
 
 
 if __name__ == '__main__':
-    logger = get_logger(app.config['LOG_NAME'],
-                        log_path=app.config['LOG_FILE'],
-                        count=app.config['LOG_COUNT'])
     debug = True
     app.run(host='0.0.0.0', debug=debug)

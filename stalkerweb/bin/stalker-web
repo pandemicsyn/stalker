@@ -7,6 +7,7 @@ import getpass
 import optparse
 from subprocess import Popen
 import rethinkdb as r
+from stalkerutils.stalkerutils import get_logger
 
 
 def _gen_key(key_len=16, extended=False):
