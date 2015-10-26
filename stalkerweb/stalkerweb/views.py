@@ -16,11 +16,13 @@ from wtforms.validators import Required
 from werkzeug.contrib.cache import RedisCache
 import rethinkdb as r
 from rethinkdb.errors import RqlDriverError, RqlRuntimeError
+import logging
 
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
 cache = RedisCache(host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'], default_timeout=app.config['CACHE_TTL'])
 
+logger = logging.getLogger(app.config['LOG_NAME'])
 
 
 class SignInForm(Form):

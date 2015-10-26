@@ -79,6 +79,10 @@ def main():
             sys.exit(1)
 
     import stalkerweb  # waited to import because we need to load conf first
+    logger = get_logger(stalkerweb.app.config['LOG_NAME'],
+        log_path=stalkerweb.app.config['LOG_FILE'],
+        count=stalkerweb.app.config['LOG_COUNT'])
+
 
     if options.init_db:
         with stalkerweb.app.test_request_context():
