@@ -22,10 +22,29 @@ If you will be building stalkerd, you'll need a working Go install as well. Foll
 
     go get github.com/tools/godep
 
-### RethinkDB Password setup
 
-You should restrict rethinkdb access by setting a password. See http://rethinkdb.com/docs/security/ for more info.
-To setup a password via the command line make sure you have the rethinkdb python package installed then run:
+### Create RethinkDB Database Tables
+
+Before stalkerd can run, some tables must be created in RethinkDB. First
+install the rethinkdb python module then run ```dbsetup.py```
+
+	$ pip install rethinkdb
+	$ cd go/packaging/root/usr/share/stalker
+	$ ./dbsetup.py
+
+If you have already set an RethinkDB Authentication Key, you can enter the
+auth_key by using the ```--auth-key``` command line option
+	
+	$ ./dbsetup.py --auth-key
+	Enter auth_key (CTRL-D to abort) > 
+
+
+### Set RethinkDB Authentication Key
+
+You should restrict rethinkdb access by setting an auth_key. See
+http://rethinkdb.com/docs/security/ for more info.  To setup a password via the
+command line make sure you have the rethinkdb python package installed then
+run:
 
     import rethinkdb as r
     r.connect('localhost',28105).repl()
