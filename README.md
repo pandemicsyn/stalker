@@ -48,7 +48,10 @@ checks or configured hosts. In addition to the UI running on http://stalkerweb:5
 | /checks/id/[checkid] | A specific check | GET, DELETE |
 | /checks/id/[checkid]/next | Get or Set next run time | GET, POST |
 | /checks/id/[checkid]/suspended | Get or Set suspend state | GET, POST |
+| /checks/id/[checkid]/owner | claim or unclaim a given check | GET, POST, DELETE |
 | /checks/state/[state] |  All checks for a given state [alerting, pending, in_maintenance] | GET |
+| /state_log/[hostname]/[checkname] | Get check history for a given check on a given host | GET |
+| /notes/[hostname] | Manage notes associated with a host | GET, POST |
 | /global/[clusterid]/checks/state/[state] | All checks for a given state in a remote stalker claster | GET |
 | /user/ | List all users | GET |
 | /user/[username] | List/Modify/Delete a user | GET, POST, DELETE |
