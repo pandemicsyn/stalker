@@ -1,0 +1,4 @@
+include INSTALL
+include README.md
+include etc/*
+include etc/init.d/*
