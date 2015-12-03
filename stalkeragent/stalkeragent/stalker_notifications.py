@@ -2,7 +2,7 @@
 
 import eventlet
 from eventlet.green import urllib, urllib2
-from stalker.stalker_utils import get_basic_auth
+from stalkerutils.stalkerutils import get_basic_auth
 
 smtplib = eventlet.import_patched('smtplib')
 

@@ -9,20 +9,19 @@ from random import randint
 from stalkerweb.auth import is_valid_login, login_required, remove_user
 from stalkerweb.stutils import jsonify, genPrimaryKey64
 from stalkerweb import app, rc, rdb
-from stalker.stalker_utils import get_logger
-from flask.ext.wtf import Form, Required, TextField, PasswordField, \
-    BooleanField
+from flask.ext.wtf import Form
+from wtforms import TextField, PasswordField, BooleanField
+from wtforms.validators import Required
 from werkzeug.contrib.cache import RedisCache
 import rethinkdb as r
 from rethinkdb.errors import RqlDriverError, RqlRuntimeError
+import logging
 
 VALID_STATES = ['alerting', 'pending', 'in_maintenance', 'suspended']
 
 cache = RedisCache(host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'], default_timeout=app.config['CACHE_TTL'])
 
-logger = get_logger(app.config['LOG_NAME'],
-                    log_path=app.config['LOG_FILE'],
-                    count=app.config['LOG_COUNT'])
+logger = logging.getLogger(app.config['LOG_NAME'])
 
 
 class SignInForm(Form):

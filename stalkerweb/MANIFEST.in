@@ -1,0 +1,3 @@
+include INSTALL
+include README.md
+recursive-include etc *

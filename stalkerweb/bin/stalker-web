@@ -7,6 +7,7 @@ import getpass
 import optparse
 from subprocess import Popen
 import rethinkdb as r
+from stalkerutils.stalkerutils import get_logger
 
 
 def _gen_key(key_len=16, extended=False):
@@ -79,6 +80,10 @@ def main():
             sys.exit(1)
 
     import stalkerweb  # waited to import because we need to load conf first
+    logger = get_logger(stalkerweb.app.config['LOG_NAME'],
+        log_path=stalkerweb.app.config['LOG_FILE'],
+        count=stalkerweb.app.config['LOG_COUNT'])
+
 
     if options.init_db:
         with stalkerweb.app.test_request_context():

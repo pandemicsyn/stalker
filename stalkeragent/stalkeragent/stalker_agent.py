@@ -7,7 +7,7 @@ from eventlet.green import subprocess, urllib2
 from socket import getfqdn
 import fcntl
 import eventlet
-from stalker.stalker_utils import Daemon, FileLikeLogger, readconf, get_logger
+from stalkerutils.stalkerutils import Daemon, FileLikeLogger, readconf, get_logger
 
 
 class StalkerAgent(object):

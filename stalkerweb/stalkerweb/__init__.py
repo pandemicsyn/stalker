@@ -4,9 +4,13 @@ from eventlet.green.socket import getfqdn
 from flask import Flask
 import redis
 from stalkerweb.stutils import ObjectIDConverter
-from stalker.stalker_utils import get_logger
+from stalkerutils.stalkerutils import get_logger
 from flask_rethinkdb import RethinkDB
 
+#: Version information (major, minor, revision[, 'dev']).
+version_info = (2, 0, 2)
+#: Version string 'major.minor.revision'.
+version = __version__ = ".".join(map(str, version_info))
 
 def _init_redis(app):
     """Initializes Redis client from app config."""
@@ -44,7 +48,7 @@ app.config['LOG_FILE'] = '/var/log/stalker/stalkerweb.log'
 app.config['LOG_NAME'] = 'stalkerweb'
 app.config['LOG_COUNT'] = 7
 
-app.config.from_envvar('STALKERWEB_CONFIG')
+app.config.from_envvar('STALKERWEB_CONFIG', silent=True)
 
 rc = _init_redis(app)
 rdb = RethinkDB(app)

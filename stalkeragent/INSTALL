@@ -1,0 +1,12 @@
+## Ubuntu install
+
+    dpkg -i python-stalker
+    apt-get install python-eventlet nagios-plugins-extra
+    update-rc.d -f stalker-agent defaults
+    update-rc.d -f stalker-agent enable
+    sudo service stalker-agent start
+
+###Logs
+
+Check /var/log/stalker/* for info, you can also start the daemons with -f (in the foreground)
+Make sure you deploy an SSL Cert and Key for stalker-agent.

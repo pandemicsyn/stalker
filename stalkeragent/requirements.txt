@@ -1,0 +1,2 @@
+eventlet==0.17.4
+stalkerutils==2.0.2
