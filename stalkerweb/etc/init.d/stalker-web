@@ -10,6 +10,7 @@
 ### END INIT INFO
 
 USER=www-data
+DAEMON=/usr/bin/stalker-web
 RUNDIR=/var/run/stalker-web
 PIDFILE=$RUNDIR/stalker-web.pid
 RETVAL=0
@@ -26,7 +27,7 @@ start()
     mkdir -p /var/log/stalker-web
     chown www-data:www-data $RUNDIR /var/log/stalker-web
     chmod 755 $RUNDIR
-    su $USER -c "/usr/bin/stalker-web -d -P $PIDFILE -G"
+    su $USER -c "$DAEMON -d -P $PIDFILE -G"
     if [ $? -eq 0 ]; then
         echo "OK"
     else
