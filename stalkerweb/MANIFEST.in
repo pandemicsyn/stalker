@@ -1,4 +1,4 @@
 include INSTALL
 include README.md
 recursive-include etc *
-recursive-include stalkerweb templates/* static/*
+recursive-include stalkerweb templates/* static/*/* static/*/*/*
