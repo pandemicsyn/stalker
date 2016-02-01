@@ -4,6 +4,9 @@
 from setuptools import setup, find_packages
 from stalkerweb import __version__ as version
 
+with open('requirements.txt') as f:
+    REQUIRED = f.read().splitlines()
+
 setup(
     name='stalkerweb',
     version=version,
@@ -19,18 +22,8 @@ setup(
         'Programming Language :: Python :: 2.6',
         'Environment :: No Input/Output (Daemon)',
     ],
-    install_requires=[
-        'stalkerutils==2.0.2',
-        'eventlet==0.17.4',
-        'flask==0.10.1',
-        'redis==2.10.3',
-        'pymongo==3.0.3',
-        'mmh3==2.3.1',
-        'flask-rethinkdb==0.2',
-        'rethinkdb==2.1.0.post2',
-        'flask-bcrypt==0.7.1',
-        'flask-wtf==0.12',
-    ],
+    install_requires=[REQUIRED,
+                     ],
     include_package_data=True,
     zip_safe=False,
     scripts=['bin/stalker-web',],

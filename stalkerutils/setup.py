@@ -4,6 +4,9 @@
 from setuptools import setup, find_packages
 from stalkerutils import __version__ as version
 
+with open('requirements.txt') as f:
+    REQUIRED = f.read().splitlines()
+
 setup(
     name='stalkerutils',
     version=version,
@@ -19,8 +22,8 @@ setup(
         'Programming Language :: Python :: 2.6',
         'Environment :: No Input/Output (Daemon)',
     ],
-    install_requires=[
-    ],
+    install_requires=[REQUIRED,
+                     ],
     include_package_data=True,
     zip_safe=False,
     data_files=[('share/doc/stalkerutils',
