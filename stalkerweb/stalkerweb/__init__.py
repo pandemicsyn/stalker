@@ -4,7 +4,6 @@ from eventlet.green.socket import getfqdn
 from flask import Flask
 import redis
 from stalkerweb.stutils import ObjectIDConverter
-from stalkerutils.stalkerutils import get_logger
 from flask_rethinkdb import RethinkDB
 
 #: Version information (major, minor, revision[, 'dev']).
