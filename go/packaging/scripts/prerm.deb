@@ -24,7 +24,7 @@ systemd() {
 
 sysv() {
   if [ -f /etc/init.d/stalkerd ] ; then
-    if pidof /usr/local/bin/stalkerd >/dev/null; then
+    if pidof /usr/bin/stalkerd >/dev/null; then
       exec /etc/init.d/stalkerd stop || :
     fi
   fi
@@ -50,9 +50,9 @@ case "$(dist)" in
     fi
     ;;
   *)
-    if [ -f /usr/local/bin/stalkerd ]; then
-      if pidof /usr/local/bin/stalkerd >/dev/null; then
-        kill -9 `pidof /usr/local/bin/stalkerd`
+    if [ -f /usr/bin/stalkerd ]; then
+      if pidof /usr/bin/stalkerd >/dev/null; then
+        kill -9 `pidof /usr/bin/stalkerd`
       fi
     fi
     ;;

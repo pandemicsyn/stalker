@@ -27,8 +27,8 @@ version() {
 upstart() {
   if [ -d /etc/init ]; then
     echo "Your system $(dist) $(version): using upstart to control Stalkerd"
-    if [ -f /usr/local/bin/stalkerd ]; then
-      if pidof /usr/local/bin/stalkerd >/dev/null; then
+    if [ -f /usr/bin/stalkerd ]; then
+      if pidof /usr/bin/stalkerd >/dev/null; then
         initctl stop stalkerd || :
       fi
     fi
@@ -45,8 +45,8 @@ upstart() {
 sysv() {
   if [ -d /etc/init.d ]; then
     echo "Your system $(dist) $(version): using SysV to control Stalkerd"
-    if [ -f /usr/local/bin/stalkerd ] && [ -f /etc/init.d/stalkerd ]; then
-      if pidof /usr/local/bin/stalkerd >/dev/null; then
+    if [ -f /usr/bin/stalkerd ] && [ -f /etc/init.d/stalkerd ]; then
+      if pidof /usr/bin/stalkerd >/dev/null; then
         /etc/init.d/stalkerd stop
       fi
     fi

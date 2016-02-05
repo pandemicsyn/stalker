@@ -12,13 +12,13 @@
 DAEMON_OPTS="-s map"
 
 pid() {
-  if [ -f /usr/local/bin/stalkerd ]; then
-    pidof /usr/local/bin/stalkerd
+  if [ -f /usr/bin/stalkerd ]; then
+    pidof /usr/bin/stalkerd
   fi
 }
 
 stop() {
-  if pidof /usr/local/bin/stalkerd >/dev/null; then
+  if pidof /usr/bin/stalkerd >/dev/null; then
     kill "$(pid)"
   else
     echo "stalkerd not running"
@@ -27,7 +27,7 @@ stop() {
 }
 
 start() {
-  if pidof /usr/local/bin/stalkerd >/dev/null; then
+  if pidof /usr/bin/stalkerd >/dev/null; then
     echo "stalkerd already running"
     exit 1
   else
@@ -36,7 +36,7 @@ start() {
 }
 
 restart() {
-  if pidof /usr/local/bin/stalkerd >/dev/null; then
+  if pidof /usr/bin/stalkerd >/dev/null; then
     kill  "$(pid)"
     nohup stalkerd $DAEMON_OPTS > /var/log/stalkerd.log  2>&1 &
     exit 0
@@ -47,7 +47,7 @@ restart() {
 }
 
 status() {
-  if pidof /usr/local/bin/stalkerd >/dev/null; then
+  if pidof /usr/bin/stalkerd >/dev/null; then
     echo "stalkerd with pid $(pid) is running"
   else
     echo "stalkerd is not running"
