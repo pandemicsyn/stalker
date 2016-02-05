@@ -1,0 +1,408 @@
+#!/usr/bin/python
+import json
+import urllib2
+import os
+import sys
+import time
+import optparse
+import tempfile
+import subprocess
+from datetime import datetime
+from getpass import getuser
+
+
+def _postnote(config, host, message, uname=None):
+    if not uname:
+        uname = getuser()
+    target = config['url'] + '/notes/' + host
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    data = {'user': uname, 'note': message}
+    try:
+        req = urllib2.Request(target, json.dumps(data), headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "Posted note to %s for %s" % (host, uname)
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No host with id %s" % host
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _getrecentnotes(config, host, limit=1):
+    endpoint = '/notes/%s?limit=%d' % (host, limit)
+    url = config['url'] + endpoint
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(url, headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        result = json.loads(content)
+        if len(result['notes']) > 0:
+            if result['notes'][0].get('ts', 0) > time.time() - 604800:
+                return True
+            else:
+                return False
+        else:
+            return False
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            return False
+        else:
+            print "Failed note check. Status: %s Msg: %s" % (err.code, err.reason)
+            return False
+
+
+def _getnotes(config, host, limit=10):
+    endpoint = '/notes/%s?limit=%d' % (host, limit)
+    url = config['url'] + endpoint
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(url, headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        result = json.loads(content)
+        print "## Last %d notes for %s ##" % (limit, host)
+        if len(result['notes']) > 0:
+            for entry in result['notes']:
+                ts = datetime.utcfromtimestamp(entry['ts'])
+                print "####"
+                print "# [%s] On %s by %s " % (host, ts, entry['user'])
+                print "# Active alerts: %s" % " ".join(entry['alerting'])
+                print "####"
+                print entry['note']
+                print
+        else:
+            print "No notes yet..."
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No such host or note history for %s" % (host)
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _claim(config, cid, uname=None):
+    if not uname:
+        uname = getuser()
+    target = config['url'] + '/checks/id/' + cid + '/owner'
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    data = {'owner': uname}
+    try:
+        req = urllib2.Request(target, json.dumps(data), headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s claimed for %s" % (cid, uname)
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _unclaim(config, cid):
+    target = config['url'] + '/checks/id/' + cid + '/owner'
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        req.get_method = lambda: 'DELETE'
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "claim on %s released." % cid
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _requeue(config, cid):
+    target = config['url'] + '/checks/id/' + cid + '/next'
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    data = {'next': 'now'}
+    try:
+        req = urllib2.Request(target, json.dumps(data), headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s set for recheck." % cid
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _state_log(config, target_check):
+    host, check = target_check.split(':', 1)
+    endpoint = '/state_log/%s/%s' % (host, check)
+    url = config['url'] + endpoint
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(url, headers=headers)
+        res = urllib2.urlopen(req)
+        content = res.read()
+        result = json.loads(content)
+        print "## State Log for %s on %s ##" % (check, host)
+        if len(result['state_log']) > 0:
+            for entry in result['state_log']:
+                ts = datetime.utcfromtimestamp(entry['last'])
+                if entry['status']:
+                    state = "UP  "
+                else:
+                    state = "DOWN"
+                print "[%s] %s - %s" % (ts, state, entry['out'])
+        else:
+            print "No history yet..."
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check or check history for %s %s" % (host, check)
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _remove_host(config, pattern):
+    target = config['url'] + '/hosts/' + pattern
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        req.get_method = lambda: 'DELETE'
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s deleted." % pattern
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No host matching %s" % pattern
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _remove_check(config, cid, name=None):
+    target = config['url'] + '/checks/id/' + cid
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        req.get_method = lambda: 'DELETE'
+        res = urllib2.urlopen(req)
+        content = res.read()
+        print "%s deleted." % (name or cid)
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No check with id %s" % cid
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _remove(config, pattern):
+    print "Looking up checks for %s..." % pattern
+    host = _get_checks_by_host(config, pattern)
+    if host:
+        if 'checks' in host:
+            print [i['check'] for i in host['checks']]
+            _ok = raw_input(
+                'Ok to remove all these checks? [y/n] ').strip().lower()
+            if _ok != 'y':
+                print "Aborting."
+                return
+            else:
+                for check in host['checks']:
+                    _remove_check(config, check['id'], check['check'])
+    print "Removing host..."
+    _remove_host(config, pattern)
+
+
+def _get_checks_by_host(config, pattern):
+    target = config['url'] + '/checks/host/' + pattern
+    headers = {'X-API-KEY': config['key'], 'Content-Type': 'application/json'}
+    try:
+        req = urllib2.Request(target, headers=headers)
+        res = urllib2.urlopen(req)
+        return json.loads(res.read())
+    except urllib2.HTTPError as err:
+        if err.code == 404:
+            print "Error. No checks for %s" % pattern
+        else:
+            print "Failed. Status: %s Msg: %s" % (err.code, err.reason)
+
+
+def _pjson(content):
+    try:
+        import pygments.lexers
+        lexer = pygments.lexers.get_lexer_by_name(
+            'javascript')  # just use this incase its an old version
+        from pygments.formatters import TerminalFormatter
+        from pygments import highlight
+        print(highlight(content, lexer, TerminalFormatter()))
+    except ImportError:
+        # load and then dump to print
+        output = json.loads(content)
+        print json.dumps(output, sort_keys=False, indent=4)
+
+
+def _request(config, rtype):
+    endpoints = {'alerting': '/checks/state/alerting',
+                 'pending': '/checks/state/pending',
+                 'suspended': '/checks/state/suspended'}
+    target = config['url'] + endpoints[rtype]
+    headers = {'X-API-KEY': config['key']}
+    req = urllib2.Request(target, headers=headers)
+    res = urllib2.urlopen(req)
+    content = res.read()
+    parsed = json.loads(content)
+    return content, parsed
+
+
+def get_message(message):
+    if not message:
+        editor = os.environ.get(
+            'STALKER_EDITOR', os.environ.get('EDITOR', 'vi'))
+        with tempfile.NamedTemporaryFile() as fp:
+            p = subprocess.Popen('%s %s' % (editor, fp.name), shell=True)
+            retval = p.wait()
+            if retval != 0:
+                raise Exception('Error on editor exit code %d' % retval)
+            message = fp.read().strip()
+        if not message:
+            raise Exception('Abort, no message')
+    if message == '-':
+        message = ''
+    return message
+
+
+def main():
+    """stalkerweb cli"""
+    usage = '''%prog -a -p -s -v'''
+    args = optparse.OptionParser(usage)
+    args.add_option('--alerting', '-a', action="store_true",
+                    help="Get alerting")
+    args.add_option('--pending', '-p', action="store_true",
+                    help="Get pending")
+    args.add_option('--suspended', '-s', action="store_true",
+                    help="Get suspended")
+    args.add_option('--verbose', '-v', action="store_true",
+                    help="Print out json (fancy if pygments is present")
+    args.add_option('--recheck', dest='recheck_id',
+                    help="Recheck check with given id")
+    args.add_option('--remove', dest='remove_host',
+                    help="Remove all checks for given host or ip")
+    args.add_option('--remove-check', dest='remove_check',
+                    help="Remove check with given id")
+    args.add_option('--list', '-l', dest='list_host',
+                    help="List all checks for given host or ip")
+    args.add_option('--state-log', dest="state_log_target",
+                    help="Show the history for target ex: --state-log=hostname:check_name")
+    args.add_option('--claim', '-c', dest="claim_id",
+                    help="Claim a given check id until it clears")
+    args.add_option('--unclaim', '-u', dest="unclaim_id",
+                    help="Release claim on a given check id")
+    args.add_option('--add-note', '-n', dest="host_note",
+                    help="Add a note to a host ex: -n test.domain.com")
+    args.add_option('--list-notes', '-L', dest="list_notes_host",
+                    help="List notes for a host ex: -L test.domain.com")
+    args.add_option('--user', '-U', dest="username",
+                    help="Use this as the username in place of the shell owner")
+    options, arguments = args.parse_args()
+
+    conf_file = os.environ.get('stalker-client-conf',
+                               '/etc/stalker/stalker-client.conf')
+
+    config = {'url': None, 'key': None}
+
+    if os.path.exists(conf_file):
+        with open(conf_file) as f:
+            for line in f:
+                if line.startswith('stalkerweb_url'):
+                    config['url'] = line.split('=')[1].strip().rstrip('/')
+                elif line.startswith('stalkerweb_api_key'):
+                    config['key'] = line.split('=')[1].strip()
+
+    if os.environ.get('stalkerweb_url'):
+        config['url'] = os.environ.get('stalkerweb_url').rstrip('/')
+
+    if os.environ.get('stalkerweb_api_key'):
+        config['key'] = os.environ.get('stalkerweb_api_key')
+
+    if not config['url']:
+        print "No stalkerweb_url found in env nor in %s" % conf_file
+        sys.exit(1)
+    if not config['key']:
+        print "No stalkerweb_api_key found in env nor in %s" % conf_file
+        sys.exit(1)
+
+    if len(sys.argv) == 1:
+        options.alerting = True
+    if options.state_log_target:
+        _state_log(config, options.state_log_target)
+    if options.recheck_id:
+        _requeue(config, options.recheck_id)
+    if options.remove_check:
+        _remove_check(config, options.remove_check)
+    if options.remove_host:
+        _remove(config, options.remove_host)
+    if options.claim_id:
+        _claim(config, options.claim_id, options.username)
+    if options.unclaim_id:
+        _unclaim(config, options.unclaim_id)
+    if options.list_host:
+        host = _get_checks_by_host(config, options.list_host)
+        if host:
+            print json.dumps(host, sort_keys=False, indent=4)
+    if options.host_note:
+        message = arguments.pop(0) if arguments else ''
+        try:
+            message = get_message(message)
+            _postnote(config, options.host_note, message, options.username)
+        except Exception as err:
+            print err
+    if options.list_notes_host:
+        _getnotes(config, options.list_notes_host, limit=10)
+    if options.alerting:
+        failed_hosts = set()
+        content, parsed = _request(config, 'alerting')
+        if options.verbose:
+            _pjson(content)
+        else:
+            print "=== Alerting ==="
+            sorted_alerts = {}
+            for i in parsed['alerting']:
+                if i['hostname'] in sorted_alerts:
+                    sorted_alerts[i['hostname']].append(i)
+                else:
+                    sorted_alerts[i['hostname']] = []
+                    sorted_alerts[i['hostname']].append(i)
+            for host in sorted_alerts:
+                recent_notes = _getrecentnotes(config, host)
+                if recent_notes:
+                    prefix = "* "
+                else:
+                    prefix = "  "
+                for i in sorted_alerts[host]:
+                    clean_out = " ".join([x for x in i['out'].split('\n')])
+                    if clean_out.startswith('<urlopen error [Errno'):
+                        failed_hosts.add(i['hostname'])
+                    else:
+                        print '%s%s [%s] %s on %s is alerting because "%s"' \
+                            % (prefix, i['id'], i.get('owner'), i['check'],
+                               i['hostname'], clean_out)
+            print "=== Alerting - unreachable ==="
+            print " ".join([x for x in failed_hosts])
+    if options.pending:
+        content, parsed = _request(config, 'pending')
+        if options.verbose:
+            _pjson(content)
+        else:
+            print "=== Pending ==="
+            for i in parsed['pending']:
+                clean_out = " ".join([x for x in i['out'].split('\n')])
+                print '%s on %s' % (i['check'], i['hostname'])
+    if options.suspended:
+        content, parsed = _request(config, 'suspended')
+        if options.verbose:
+            _pjson(content)
+        else:
+            print "=== Suspended ==="
+            for i in parsed['suspended']:
+                clean_out = " ".join([x for x in i['out'].split('\n')])
+                print '%s on %s is suspended. last output: "%s"' % (i['check'], i['hostname'], clean_out)
+
+
+if __name__ == '__main__':
+    main()
