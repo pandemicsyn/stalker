@@ -9,7 +9,7 @@ rethinkkey = "password"
 rethinkdb_pool_max_idle = 5
 rethinkdb_pool_max_open = 100
 
-checkkey = "canhazstatus"
+check_key = "canhazstatus"
 
 #manager
 manager = true
