@@ -26,7 +26,7 @@ setup(
                      ],
     include_package_data=True,
     zip_safe=False,
-    scripts=['bin/stalker-web',],
+    scripts=['bin/stalker-web', 'bin/stalker-client'],
     data_files=[('share/doc/stalkerweb',
                  ['README.md', 'INSTALL',
                   'etc/stalker-web.conf',
