@@ -31,5 +31,6 @@ setup(
                  ['README.md', 'INSTALL',
                   'etc/stalker-web.conf',
                   'etc/init.d/stalker-web',
+                  'etc/stalker-client.conf',
                  ])]
 )
