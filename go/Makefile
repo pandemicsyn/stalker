@@ -4,15 +4,15 @@ ITTERATION := $(shell date +%s)
 
 build:
 	mkdir -p packaging/output
-	mkdir -p packaging/root/usr/local/bin
-	godep go build -o packaging/root/usr/local/bin/stalkerd github.com/pandemicsyn/stalker/go/stalkerd
+	mkdir -p packaging/root/usr/bin
+	godep go build -o packaging/root/usr/bin/stalkerd github.com/pandemicsyn/stalker/go/stalkerd
 
 clean:
 	rm -rf packaging/output
-	rm -f packaging/root/usr/local/bin/stalkerd
+	rm -f packaging/root/usr/bin/stalkerd
 
 install:
-	install -t /usr/local/bin packaging/root/usr/local/bin/stalkerd
+	install -t /usr/bin packaging/root/usr/bin/stalkerd
 
 run:
 	@godep go run stalkerd/main.go
@@ -22,7 +22,7 @@ packages: clean build deb
 # embeds content in go source code so that it is compiled
 # and packaged inside the go binary file.
 #embed:
-#	rice --import-path="github.com/drone/drone/server" append --exec="packaging/root/usr/local/bin/droned"
+#	rice --import-path="github.com/drone/drone/server" append --exec="packaging/root/usr/bin/droned"
 
 deb:
 	fpm -s dir -t deb -n stalkerd -v $(VERSION) -p packaging/output/stalkerd-$(VERSION)_amd64.deb \

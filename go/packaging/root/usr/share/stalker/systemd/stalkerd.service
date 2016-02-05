@@ -11,7 +11,7 @@ After=syslog.target network.target
 # http://0pointer.de/public/systemd-man/systemd.exec.html
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/stalkerd
+ExecStart=/usr/bin/stalkerd
 
 # if we crash, restart
 RestartSec=1
