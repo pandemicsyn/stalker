@@ -8,3 +8,4 @@ flask-rethinkdb==0.2
 rethinkdb==2.1.0.post2
 flask-bcrypt==0.7.1
 flask-wtf==0.12
+gunicorn==19.4.5
